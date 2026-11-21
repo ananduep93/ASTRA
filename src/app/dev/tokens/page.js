@@ -8,6 +8,7 @@ import CountUp from '@/components/ui/CountUp'
 import Marquee from '@/components/ui/Marquee'
 import BrushUnderline from '@/components/ui/BrushUnderline'
 import ClipReveal from '@/components/ui/ClipReveal'
+import SplitHeading from '@/components/ui/SplitHeading'
 
 export default function DevTokensPage() {
   const { world, toggleWorld, switchWorld, isWiping } = useWorld()
@@ -160,6 +161,19 @@ export default function DevTokensPage() {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 0. SplitHeading */}
+          <div className="world-card p-5 md:col-span-2">
+            <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+              Featured: SplitHeading Component (Accent Flip on Letters 0, 8, 15)
+            </div>
+            <SplitHeading
+              as="h3"
+              className="text-2xl sm:text-3xl font-bold font-display"
+              text="SYNCHRONIZING ANALOG AND DIGITAL"
+              accentLetters={[0, 8, 15]}
+            />
+          </div>
+
           {/* 1. LineReveal */}
           <div className="world-card p-5">
             <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
