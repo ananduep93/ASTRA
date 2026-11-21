@@ -133,7 +133,7 @@ body {
 }
 
 /* ========================================================================
-   CODE world grid background effect
+   CODE world grid & scanline texture background
    ======================================================================== */
 [data-world="code"] body::before {
   content: '';
@@ -141,22 +141,26 @@ body {
   inset: 0;
   z-index: -1;
   background-image:
-    linear-gradient(rgba(0, 255, 178, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 178, 0.035) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(rgba(0, 255, 178, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 178, 0.03) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 178, 0.015) 2px, rgba(0, 255, 178, 0.015) 4px);
+  background-size: 32px 32px, 32px 32px, 100% 4px;
   pointer-events: none;
 }
 
 /* ========================================================================
-   INK world subtle paper grain effect
+   INK world paper grain texture overlay
    ======================================================================== */
 [data-world="ink"] body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(rgba(26, 26, 26, 0.03) 1px, transparent 0);
-  background-size: 24px 24px;
+  background-image: 
+    radial-gradient(rgba(26, 26, 26, 0.04) 1px, transparent 0),
+    radial-gradient(rgba(196, 132, 29, 0.02) 1px, transparent 0);
+  background-size: 24px 24px, 48px 48px;
+  background-position: 0 0, 12px 12px;
   pointer-events: none;
 }
 
@@ -197,6 +201,55 @@ body {
   100% {
     clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
     opacity: 0.98;
+  }
+}
+
+/* ========================================================================
+   Hero Title Entrance Animations (Step B)
+   ======================================================================== */
+@keyframes inkLetterBleed {
+  0% {
+    opacity: 0;
+    filter: blur(14px);
+    transform: scale(1.18);
+  }
+  50% {
+    opacity: 0.8;
+    filter: blur(4px);
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+}
+
+@keyframes codeLetterGlitch {
+  0% {
+    opacity: 0;
+    transform: translate(-5px, 0);
+    text-shadow: -3px 0 #00FFB2, 3px 0 #FF0055;
+  }
+  25% {
+    opacity: 0.9;
+    transform: translate(3px, 0);
+    text-shadow: 3px 0 #00FFB2, -3px 0 #FF0055;
+  }
+  50% {
+    opacity: 0.4;
+    transform: translate(-2px, 0);
+    text-shadow: -2px 0 #00FFB2, 2px 0 #00E5FF;
+  }
+  75% {
+    opacity: 1;
+    transform: translate(1px, 0);
+    text-shadow: 1px 0 #00FFB2, -1px 0 #00FFB2;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+    text-shadow: 0 0 32px rgba(0, 255, 178, 0.6), 2px 0px 0px #00FFB2;
   }
 }
 

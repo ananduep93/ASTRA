@@ -3,6 +3,11 @@
 import { useWorld, WORLDS } from '@/context/WorldContext'
 import { programs, filterPrograms, CATEGORIES, IS_PLACEHOLDER } from '@/data/programs'
 import { useState } from 'react'
+import LineReveal from '@/components/ui/LineReveal'
+import CountUp from '@/components/ui/CountUp'
+import Marquee from '@/components/ui/Marquee'
+import BrushUnderline from '@/components/ui/BrushUnderline'
+import ClipReveal from '@/components/ui/ClipReveal'
 
 export default function DevTokensPage() {
   const { world, toggleWorld, switchWorld, isWiping } = useWorld()
@@ -145,6 +150,84 @@ export default function DevTokensPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Step A: Motion System Components Verification */}
+      <section className="mt-12 pt-8 border-t border-[var(--w-border)]">
+        <h2 className="heading-display text-2xl font-bold mb-4">
+          Motion System Reusable Components (Step A)
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 1. LineReveal */}
+          <div className="world-card p-5">
+            <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+              1. LineReveal Component
+            </div>
+            <LineReveal
+              as="h3"
+              className="text-xl font-bold font-display"
+              lines={['Two Visual Worlds Collide.', 'Paper Meets Silicon.']}
+            />
+          </div>
+
+          {/* 2. CountUp */}
+          <div className="world-card p-5">
+            <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+              2. CountUp Component
+            </div>
+            <div className="flex items-baseline gap-4">
+              <div>
+                <CountUp to={15} duration={1.2} suffix=" Programs" className="text-3xl font-extrabold font-display" />
+              </div>
+              <div>
+                <CountUp to={2500} prefix="₹" duration={1.8} className="text-3xl font-extrabold font-mono text-[var(--w-accent)]" />
+              </div>
+            </div>
+          </div>
+
+          {/* 3. BrushUnderline */}
+          <div className="world-card p-5">
+            <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+              3. BrushUnderline Component
+            </div>
+            <div className="inline-block">
+              <span className="text-lg font-bold font-display">Handcrafted Expression</span>
+              <BrushUnderline height={10} strokeWidth={2.5} />
+            </div>
+          </div>
+
+          {/* 4. ClipReveal */}
+          <div className="world-card p-5">
+            <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+              4. ClipReveal Component
+            </div>
+            <ClipReveal aspectRatio="16/9" className="rounded border border-[var(--w-border)]">
+              <div className="w-full h-full bg-gradient-to-tr from-[var(--w-bg-secondary)] to-[var(--w-accent)] flex items-center justify-center text-sm font-mono font-bold text-[var(--w-bg)]">
+                [CLIPPED SHOWCASE MEDIA]
+              </div>
+            </ClipReveal>
+          </div>
+        </div>
+
+        {/* 5. Marquee */}
+        <div className="world-card p-5 mt-6">
+          <div className="text-xs font-mono text-[var(--w-accent)] mb-2 font-bold uppercase">
+            5. Marquee Component (Scroll-velocity reactive)
+          </div>
+          <Marquee
+            items={[
+              'DON BOSCO COLLEGE MAMPETTA',
+              'ASTRA 2026',
+              'INK × CODE',
+              'STAGE SPECTACLES',
+              'ESPORTS ARENA',
+              'HACKATHON',
+            ]}
+            baseSpeed={40}
+            className="border-y border-[var(--w-border)] bg-[var(--w-bg-secondary)] text-sm font-mono font-bold"
+          />
         </div>
       </section>
     </main>

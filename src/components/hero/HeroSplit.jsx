@@ -6,6 +6,8 @@ import Countdown from '@/components/ui/Countdown'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import gsap from 'gsap'
 
+const LETTERS = ['A', 'S', 'T', 'R', 'A']
+
 export default function HeroSplit() {
   const DEFAULT_SPLIT = 50
   const [splitPos, setSplitPos] = useState(DEFAULT_SPLIT)
@@ -15,26 +17,27 @@ export default function HeroSplit() {
   const handleRef = useRef(null)
   const prefersReduced = useReducedMotion()
 
-  // Intro sweep and idle nudge animation
+  // Intro sweep and idle nudge animation:
+  // Sequenced after letter load (~0.75s), sweeps and settles before 2.2s.
   useEffect(() => {
     if (prefersReduced) {
       setSplitPos(DEFAULT_SPLIT)
       return
     }
 
-    const state = { pos: 15 }
-    setSplitPos(15)
+    const state = { pos: 18 }
+    setSplitPos(18)
 
-    const tl = gsap.timeline({ delay: 0.2 })
+    const tl = gsap.timeline({ delay: 0.75 })
     tl.to(state, {
-      pos: 70,
-      duration: 0.75,
+      pos: 68,
+      duration: 0.65,
       ease: 'power2.inOut',
       onUpdate: () => setSplitPos(state.pos),
     })
       .to(state, {
         pos: DEFAULT_SPLIT,
-        duration: 0.6,
+        duration: 0.55,
         ease: 'power3.out',
         onUpdate: () => setSplitPos(state.pos),
       })
@@ -227,14 +230,30 @@ export default function HeroSplit() {
 
             {/* INK Title */}
             <h1
-              className="select-none"
+              className="select-none flex items-center justify-center m-0 p-0"
               style={{
                 ...titleStyle,
                 color: '#1A1A1A',
                 textShadow: '2px 4px 0px rgba(196, 132, 29, 0.3)',
               }}
+              aria-label="ASTRA"
             >
-              ASTRA
+              {LETTERS.map((char, idx) => (
+                <span
+                  key={idx}
+                  className="inline-block will-change-transform"
+                  style={
+                    prefersReduced
+                      ? {}
+                      : {
+                          animation: `inkLetterBleed 650ms cubic-bezier(0.25, 1, 0.5, 1) ${0.1 + idx * 0.1}s both`,
+                        }
+                  }
+                  aria-hidden="true"
+                >
+                  {char}
+                </span>
+              ))}
             </h1>
           </div>
 
@@ -273,14 +292,30 @@ export default function HeroSplit() {
 
             {/* CODE Title (Identical metrics, zero gap, seamless split) */}
             <h1
-              className="select-none"
+              className="select-none flex items-center justify-center m-0 p-0"
               style={{
                 ...titleStyle,
                 color: '#E0E0E0',
                 textShadow: '0 0 32px rgba(0, 255, 178, 0.6), 2px 0px 0px #00FFB2',
               }}
+              aria-label="ASTRA"
             >
-              ASTRA
+              {LETTERS.map((char, idx) => (
+                <span
+                  key={idx}
+                  className="inline-block will-change-transform"
+                  style={
+                    prefersReduced
+                      ? {}
+                      : {
+                          animation: `codeLetterGlitch 500ms steps(4, jump-end) ${0.15 + idx * 0.1}s both`,
+                        }
+                  }
+                  aria-hidden="true"
+                >
+                  {char}
+                </span>
+              ))}
             </h1>
           </div>
 
