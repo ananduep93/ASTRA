@@ -86,6 +86,14 @@ const CATEGORY_SECTIONS = [
   },
 ]
 
+const CATEGORY_CHIPS = [
+  { id: 'arts', name: 'Arts', bg: 'bg-[#FF4D8D]', text: 'text-[#1A1A1A]' },
+  { id: 'tech', name: 'Tech', bg: 'bg-[#2F5BFF]', text: 'text-white' },
+  { id: 'gaming', name: 'Gaming', bg: 'bg-[#B6FF3B]', text: 'text-[#1A1A1A]' },
+  { id: 'business', name: 'Business', bg: 'bg-[#FF7A1A]', text: 'text-[#1A1A1A]' },
+  { id: 'fun', name: 'Fun', bg: 'bg-[#FFD60A]', text: 'text-[#1A1A1A]' },
+]
+
 export default function Home() {
   return (
     <div className="min-h-[100dvh] flex flex-col justify-between bg-[var(--c-base)] text-[var(--c-ink)] relative overflow-x-hidden">
@@ -95,98 +103,88 @@ export default function Home() {
       {/* 1. Sticker Poster Navbar */}
       <Navbar />
 
-      {/* Decorative Edge Visual Anchors: 5 Category Color Bars (aria-hidden, zero horizontal scroll) */}
-      <div
-        className="hero-anim-item fixed left-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
-        aria-hidden="true"
-      >
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#FF4D8D]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#2F5BFF]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#B6FF3B]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#FF7A1A]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#FFD60A]" />
-      </div>
-
-      <div
-        className="hero-anim-item fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
-        aria-hidden="true"
-      >
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#FFD60A]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#FF7A1A]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#B6FF3B]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#2F5BFF]" />
-        <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#FF4D8D]" />
-      </div>
-
       <main className="flex-1 w-full overflow-hidden">
         {/* =========================================================================
-            1. HERO SECTION (Visual Anchor + Tilted Banner Label + Clean Layout)
+            1. HERO SECTION (Redesigned: Edge-to-edge ASTRA, Dates TBA, 5 Chips, 1 Button)
            ========================================================================= */}
-        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 sm:pt-14 sm:pb-18">
-          <div className="flex flex-col items-start relative">
+        <section className="relative max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-4 sm:pb-6 flex flex-col justify-start">
+          <div className="flex flex-col items-start w-full relative">
             
-            {/* Campus & Dates Pills */}
-            <div className="hero-anim-item flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 flex-wrap">
+            {/* 1. College Pill */}
+            <div className="hero-anim-item mb-2 sm:mb-3">
               <span className="sticker-pill">
                 <span className="w-2 h-2 rounded-full bg-[#B6FF3B] border border-[#1A1A1A]" />
                 <span>Don Bosco College, Mampetta</span>
               </span>
-              <span className="sticker-pill bg-[#FFD60A]">
+            </div>
+
+            {/* 2. Full-Width ASTRA + Overlapping Tilted Dates TBA Sticker */}
+            <div className="relative w-full mb-2 sm:mb-3">
+              <h1
+                id="hero-astra"
+                className="font-display text-hero text-[#1A1A1A] select-none block leading-[0.86]"
+              >
+                ASTRA
+              </h1>
+              <span
+                className="absolute -top-3 sm:-top-4 right-0 sm:right-2 -rotate-3 bg-[#FFD60A] text-[#1A1A1A] font-display font-bold text-[10px] sm:text-xs px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border-2 border-[#1A1A1A] shadow-[2px_2px_0px_#1A1A1A] uppercase tracking-wider select-none pointer-events-none z-10"
+              >
                 Dates TBA
               </span>
             </div>
 
-            {/* Tilted Banner Label as Hero Visual Anchor */}
-            <div className="hero-anim-item mb-1 sm:mb-2">
-              <span className="inline-block -rotate-2 bg-[#FFD60A] text-[#1A1A1A] border-2 border-[#1A1A1A] shadow-[2px_2px_0px_#1A1A1A] px-2.5 py-0.5 text-[10px] sm:text-xs font-display uppercase tracking-widest select-none">
-                MARCH 2026 // ANNUAL EDITION
-              </span>
-            </div>
-
-            {/* Giant Title (Shared-Element Target) */}
-            <div className="w-full">
-              <h1
-                id="hero-astra"
-                className="inline-block font-display text-hero text-[#1A1A1A] tracking-tight leading-[0.88] select-none [text-wrap:balance]"
-              >
-                ASTRA
-              </h1>
-            </div>
-
-            {/* Subtitle */}
-            <p className="hero-anim-item font-medium text-lg sm:text-2xl lg:text-3xl text-[#1A1A1A]/90 mt-3 sm:mt-4 tracking-tight [text-wrap:balance] leading-snug max-w-3xl">
-              INTER-COLLEGE ARTS & TECH FEST 2026
+            {/* 3. Subtitle (Readable, medium weight, normal letter-spacing, no "2026") */}
+            <p className="hero-anim-item font-medium text-base sm:text-xl lg:text-2xl text-[#1A1A1A] tracking-normal leading-snug mb-1.5 sm:mb-2">
+              Inter-college arts &amp; tech fest
             </p>
 
-            {/* Body Copy */}
-            <p className="hero-anim-item font-normal text-xs sm:text-base text-[#1A1A1A]/75 mt-3 max-w-xl [text-wrap:balance] leading-relaxed">
-              The grand collision of raw human creativity and computational logic. Two days of stage spectacles, code sprints, esports, and cultural exhibitions.
+            {/* 4. Short copy (Dark text with AA contrast, max 2 lines) */}
+            <p className="hero-anim-item font-normal text-xs sm:text-sm md:text-base text-[#1A1A1A]/85 leading-relaxed max-w-xl mb-4 sm:mb-5">
+              Two days of stage, code, games and culture.
             </p>
 
-            {/* Action Buttons in Sticker Style */}
-            <div className="hero-anim-item mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 sm:gap-4 w-full sm:w-auto">
-              <Link
-                href="/register"
-                className="sticker-btn-primary px-8 py-3.5 sm:px-9 sm:py-4 text-xs sm:text-sm text-center"
-              >
-                <span>Register for Fest</span>
-                <span className="text-base font-bold">→</span>
-              </Link>
+            {/* 5 & 6. Category Chips + Actions (Desktop: one row; Mobile: stacked) */}
+            <div className="hero-anim-item flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-5 w-full">
+              {/* Category Chips (Min 44px tap height, 2px border, hard ink shadow) */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {CATEGORY_CHIPS.map((chip) => (
+                  <Link
+                    key={chip.id}
+                    href={`/#category-${chip.id}`}
+                    className={`min-h-[44px] inline-flex items-center justify-center px-4 py-2 rounded-full border-2 border-[#1A1A1A] shadow-[2px_2px_0px_#1A1A1A] font-display font-bold text-xs uppercase tracking-wider sticker-press transition-transform ${chip.bg} ${chip.text}`}
+                  >
+                    {chip.name}
+                  </Link>
+                ))}
+              </div>
 
-              <Link
-                href="/programs"
-                className="sticker-btn-secondary px-6 py-3 sm:px-7 sm:py-3.5 text-xs sm:text-sm text-center"
-              >
-                Explore 15 Programs
-              </Link>
+              {/* Action: ONE primary button + text link underneath */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-4 w-full sm:w-auto shrink-0">
+                <Link
+                  href="/register"
+                  className="sticker-btn-primary w-full sm:w-auto px-8 py-3.5 sm:px-9 sm:py-3.5 text-xs sm:text-sm text-center font-display uppercase tracking-wider"
+                >
+                  <span>Register for fest</span>
+                  <span className="text-base font-bold">→</span>
+                </Link>
+
+                <Link
+                  href="/programs"
+                  className="inline-flex items-center justify-center sm:justify-start gap-1.5 text-xs sm:text-sm font-bold tracking-wider uppercase text-[#1A1A1A] hover:underline underline-offset-4 py-1.5 transition-opacity"
+                >
+                  <span>Explore 15 programs</span>
+                  <span className="text-sm font-bold">→</span>
+                </Link>
+              </div>
             </div>
+
           </div>
         </section>
 
         {/* =========================================================================
-            2. TILTED BANNER STRIP (Rotated Marquee Tape)
+            2. TILTED BANNER STRIP (Full Bleed, No College Name, Consistent Spacing)
            ========================================================================= */}
-        <TiltedBanner />
+        <TiltedBanner text="ARTS ✦ TECH ✦ GAMING ✦ BUSINESS ✦ FUN ✦ 15 PROGRAMS ✦" />
 
         {/* =========================================================================
             3. FIVE CATEGORY BLOCKS (Polished Content Density + Varied Layouts)

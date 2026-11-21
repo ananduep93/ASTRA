@@ -3,9 +3,9 @@ const fs = require('fs');
 
 const ARTIFACT_DIR = 'C:/Users/admin/.gemini/antigravity/brain/72f4ac67-f5ca-4b7a-a8ae-a1de4f8fae2a';
 
-async function snapDevice(width, height, isMobile, prefix) {
-  console.log(`\n=== Capturing ${prefix} (${width}x${height}) ===`);
-  const port = 9555 + Math.floor(Math.random() * 400);
+async function testPage(width, height, isMobile, prefix) {
+  console.log(`\n=== Testing ${prefix} (${width}x${height}) ===`);
+  const port = 9600 + Math.floor(Math.random() * 300);
   const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
     '--headless=new',
     '--disable-gpu',
@@ -50,7 +50,7 @@ async function snapDevice(width, height, isMobile, prefix) {
       const res = await send('Page.captureScreenshot', { format: 'png' });
       const filePath = `${ARTIFACT_DIR}/${prefix}-${name}.png`;
       fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
-      console.log(`Saved: ${prefix}-${name}.png`);
+      console.log(`Saved screenshot: ${prefix}-${name}.png`);
     };
 
     const evalJs = async (expr) => {
@@ -61,85 +61,97 @@ async function snapDevice(width, height, isMobile, prefix) {
       return res?.result?.value;
     };
 
-    // Navigate to ?intro=1
-    await send('Page.navigate', { url: 'http://localhost:3000/?intro=1' });
-    await new Promise((r) => setTimeout(r, 2200));
+    // 1. First test intro handoff moments on 360px and 1280px
+    if (width === 360 || width === 1280) {
+      await send('Page.navigate', { url: 'http://localhost:3000/?intro=1' });
+      await new Promise((r) => setTimeout(r, 2200));
 
-    // Verify timeline exists
-    const hasTl = await evalJs(`typeof window.__introTimeline !== 'undefined'`);
-    console.log(`Has __introTimeline:`, hasTl);
+      // Moment 1: Bars rising
+      await evalJs(`(() => {
+        if (window.__introTimeline) {
+          window.__introTimeline.pause();
+          window.__introTimeline.seek(0.35, false);
+          const p = Math.round(window.__introTimeline.progress() * 100);
+          const el = document.querySelector('[class*="tabular-nums"]');
+          if (el) el.textContent = String(p).padStart(2, '0');
+        }
+        return true;
+      })()`);
+      await new Promise((r) => setTimeout(r, 200));
+      await takeScreenshot('intro-1-bars-rising');
 
-    // MOMENT 1: Bars rising (0.35s)
-    await evalJs(`(() => {
-      if (window.__introTimeline) {
-        window.__introTimeline.pause();
-        window.__introTimeline.seek(0.35, false);
-        const p = Math.round(window.__introTimeline.progress() * 100);
-        const el = document.querySelector('[class*="tabular-nums"]');
-        if (el) el.textContent = String(p).padStart(2, '0');
-      }
-      return true;
-    })()`);
-    await new Promise((r) => setTimeout(r, 300));
-    await takeScreenshot('1-bars-rising');
+      // Moment 2: ASTRA centered with counter (no skip button)
+      await evalJs(`(() => {
+        if (window.__introTimeline) {
+          window.__introTimeline.pause();
+          window.__introTimeline.seek(1.15, false);
+          const p = Math.round(window.__introTimeline.progress() * 100);
+          const el = document.querySelector('[class*="tabular-nums"]');
+          if (el) el.textContent = String(p).padStart(2, '0');
+        }
+        return true;
+      })()`);
+      await new Promise((r) => setTimeout(r, 200));
+      await takeScreenshot('intro-2-astra-counter');
 
-    // MOMENT 2: ASTRA with counter (1.15s)
-    await evalJs(`(() => {
-      if (window.__introTimeline) {
-        window.__introTimeline.pause();
-        window.__introTimeline.seek(1.15, false);
-        const p = Math.round(window.__introTimeline.progress() * 100);
-        const el = document.querySelector('[class*="tabular-nums"]');
-        if (el) el.textContent = String(p).padStart(2, '0');
-      }
-      return true;
-    })()`);
-    await new Promise((r) => setTimeout(r, 300));
-    await takeScreenshot('2-astra-counter');
+      // Moment 3: Curtains lifting & handoff gliding
+      await evalJs(`(() => {
+        if (window.__introTimeline) {
+          window.__introTimeline.pause();
+          window.__introTimeline.seek(2.15, false);
+        }
+        return true;
+      })()`);
+      await new Promise((r) => setTimeout(r, 200));
+      await takeScreenshot('intro-3-curtains-lifting');
 
-    // Metrics at moment 2
-    const m2 = await evalJs(`(() => {
-      const el = document.querySelector('#intro-astra, [class*="text-hero"]');
-      const rect = el ? el.getBoundingClientRect() : null;
+      // Finish intro cleanly
+      await evalJs(`(() => {
+        if (window.__introTimeline) {
+          window.__introTimeline.progress(1);
+        }
+        return true;
+      })()`);
+      await new Promise((r) => setTimeout(r, 600));
+    } else {
+      // For other viewports, skip intro to capture static hero
+      await send('Page.navigate', { url: 'http://localhost:3000' });
+      await send('Runtime.evaluate', {
+        expression: `try { sessionStorage.setItem('astra_intro_seen', 'true'); } catch(e) {}`,
+      });
+      await send('Page.navigate', { url: 'http://localhost:3000' });
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+
+    // Inspect hero metrics
+    const heroMetrics = await evalJs(`(() => {
+      const astra = document.getElementById('hero-astra');
+      const astraRect = astra ? astra.getBoundingClientRect() : null;
+      const tbaSticker = document.querySelector('span:has(> text), span');
+      const chips = Array.from(document.querySelectorAll('a[href*="#category-"]')).map(el => ({
+        text: el.textContent.trim(),
+        height: el.getBoundingClientRect().height,
+        width: el.getBoundingClientRect().width,
+      }));
+      const primaryBtn = document.querySelector('a[href="/register"]');
+      const marquee = document.querySelector('[class*="animate-[marquee"]');
+
       return {
         viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
         scrollWidth: document.documentElement.scrollWidth,
         hasHorizontalOverflow: document.documentElement.scrollWidth > window.innerWidth,
-        astraWidth: rect ? rect.width : null,
-        astraLeft: rect ? rect.left : null,
+        astraWidth: astraRect ? Math.round(astraRect.width) : null,
+        astraHeight: astraRect ? Math.round(astraRect.height) : null,
+        chipsCount: chips.length,
+        chipsMinHeight: Math.min(...chips.map(c => c.height)),
+        primaryBtnWidth: primaryBtn ? Math.round(primaryBtn.getBoundingClientRect().width) : null,
       };
     })()`);
-    console.log('Metrics at moment 2:', m2);
+    console.log('Hero Metrics:', heroMetrics);
 
-    // MOMENT 3: Curtains lifting (2.05s)
-    await evalJs(`(() => {
-      if (window.__introTimeline) {
-        window.__introTimeline.pause();
-        window.__introTimeline.seek(2.05, false);
-      }
-      return true;
-    })()`);
-    await new Promise((r) => setTimeout(r, 300));
-    await takeScreenshot('3-curtains-lifting');
-
-    // MOMENT 4: Final hero (progress=1 + finish)
-    await evalJs(`(() => { if (window.__introTimeline) { window.__introTimeline.progress(1); } return true; })()`);
-    await new Promise((r) => setTimeout(r, 600));
-
-    // Metrics at final hero
-    const m4 = await evalJs(`(() => {
-      const heroAstra = document.getElementById('hero-astra');
-      return {
-        heroVisibility: heroAstra ? window.getComputedStyle(heroAstra).visibility : null,
-        heroOpacity: heroAstra ? window.getComputedStyle(heroAstra).opacity : null,
-        scrollWidth: document.documentElement.scrollWidth,
-        viewportWidth: window.innerWidth,
-        hasHorizontalOverflow: document.documentElement.scrollWidth > window.innerWidth,
-      };
-    })()`);
-    console.log('Metrics at final hero:', m4);
-
-    await takeScreenshot('4-final-hero');
+    // Capture hero screenshot
+    await takeScreenshot('hero');
 
     ws.close();
     chrome.kill();
@@ -150,9 +162,10 @@ async function snapDevice(width, height, isMobile, prefix) {
 }
 
 async function main() {
-  await snapDevice(360, 780, true, 'curtain-360px');
-  await snapDevice(1280, 800, false, 'curtain-1280px');
-  console.log('\nAll 8 screenshots captured successfully!');
+  await testPage(360, 800, true, 'hero-360px');
+  await testPage(390, 844, true, 'hero-390px');
+  await testPage(1280, 800, false, 'hero-1280px');
+  console.log('\nAll tests and screenshots completed successfully!');
 }
 
 main().catch(console.error);

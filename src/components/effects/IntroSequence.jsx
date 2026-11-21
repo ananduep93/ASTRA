@@ -233,31 +233,37 @@ export default function IntroSequence({ onComplete }) {
     }
 
     // Measure geometry for shared-element handoff
-    const heroRect = heroEl ? heroEl.getBoundingClientRect() : { left: 16, top: 200, width: 300 }
+    const heroRect = heroEl ? heroEl.getBoundingClientRect() : { left: 16, top: 120, width: 328 }
     const introRect = introAstraEl.getBoundingClientRect()
 
     const scale = introRect.width > 0 ? heroRect.width / introRect.width : 1
     const dx = heroRect.left - introRect.left
     const dy = heroRect.top - introRect.top
 
-    // 2.0 - 2.6s: Shared-element handoff (ASTRA scales & translates to hero title)
+    // 2.0 - 2.6s: Shared-element handoff (ASTRA glides smoothly to hero title position)
     tl.to(
       introAstraEl,
       {
         x: dx,
         y: dy,
         scale: scale,
-        duration: 0.6,
+        duration: 0.62,
         ease: 'power3.inOut',
       },
       2.0
     )
 
-    // At 2.6s: Swap visibility from intro ASTRA to real hero title
+    // Seamless micro-crossfade at landing point so there is zero pop or jump
+    tl.to(introAstraEl, { opacity: 0, duration: 0.12, ease: 'linear' }, 2.52)
     if (heroEl) {
-      tl.set(heroEl, { visibility: 'visible', opacity: 1 }, 2.6)
+      tl.fromTo(
+        heroEl,
+        { opacity: 0, visibility: 'visible' },
+        { opacity: 1, duration: 0.12, ease: 'linear' },
+        2.52
+      )
     }
-    tl.set(introAstraEl, { visibility: 'hidden' }, 2.6)
+    tl.set(introAstraEl, { visibility: 'hidden' }, 2.64)
 
     // 2.4 - 2.8s: Hero elements (navbar, pill, subtitle, buttons) fade & rise in
     const navHeader = document.querySelector('header')
@@ -337,20 +343,6 @@ export default function IntroSequence({ onComplete }) {
         </span>
         <span className="text-[#1A1A1A]/40 text-[10px]">%</span>
       </div>
-
-      {/* Skip Button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          finish()
-        }}
-        className="absolute top-5 left-5 sm:top-8 sm:left-8 z-30 sticker-pill bg-white text-[#1A1A1A] text-[11px] font-bold uppercase tracking-wider hover:bg-[#FFD60A] transition-colors cursor-pointer"
-        aria-label="Skip intro sequence"
-      >
-        <span>Skip</span>
-        <span className="font-bold">→</span>
-      </button>
     </aside>
   )
 }

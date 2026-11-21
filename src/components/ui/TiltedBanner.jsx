@@ -7,7 +7,7 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
  * Features 2px ink borders, vibrant background, and zero horizontal scroll.
  */
 export default function TiltedBanner({
-  text = 'ASTRA 2026 ✦ DON BOSCO COLLEGE MAMPETTA ✦ ARTS ✦ TECH ✦ GAMING ✦ BUSINESS ✦ FUN ✦ DATES TBA ✦',
+  text = 'ARTS ✦ TECH ✦ GAMING ✦ BUSINESS ✦ FUN ✦ 15 PROGRAMS ✦',
   bgColor = '#FFD60A',
   textColor = '#1A1A1A',
   rotate = '-rotate-2',
