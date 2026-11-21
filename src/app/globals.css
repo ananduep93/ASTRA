@@ -1,287 +1,291 @@
 @import "tailwindcss";
 
 /* ========================================================================
-   ASTRA — Local Display Fonts (Offline-Resilient True Bold Fonts)
+   ASTRA — Modern Poster Typography (Heavyweight Display + Clean Body)
+   Two fonts total on site: Archivo (900 Black) + Plus Jakarta Sans (400, 500, 700).
+   Self-hosted locally with font-display: swap.
    ======================================================================== */
+
 @font-face {
-  font-family: 'AstraDisplay';
-  src: url('/fonts/serif-bold.ttf') format('truetype');
-  font-weight: 700;
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-900.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Diagnostic specimen fonts for /dev/tokens */
+@font-face {
+  font-family: 'Bricolage';
+  src: url('/fonts/bricolage-800.woff2') format('woff2');
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'AstraMono';
-  src: url('/fonts/mono-bold.ttf') format('truetype');
+  font-family: 'Anton';
+  src: url('/fonts/anton-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlusJakarta';
+  src: url('/fonts/plus-jakarta-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlusJakarta';
+  src: url('/fonts/plus-jakarta-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlusJakarta';
+  src: url('/fonts/plus-jakarta-700.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 /* ========================================================================
-   ASTRA — World System CSS Variables
-   Two visual worlds: INK (warm, brush, arts) and CODE (dark, neon, tech).
-   Switching data-world on <html> re-skins everything through these tokens.
+   ASTRA — Sticker Poster Design Tokens
    ======================================================================== */
-
-/* --- Tailwind v4 theme: map semantic tokens to world CSS variables --- */
 @theme inline {
-  /* Colors */
-  --color-surface: var(--w-bg);
-  --color-surface-secondary: var(--w-bg-secondary);
-  --color-on-surface: var(--w-text);
-  --color-on-surface-secondary: var(--w-text-secondary);
-  --color-accent: var(--w-accent);
-  --color-accent-glow: var(--w-accent-glow);
-  --color-world-border: var(--w-border);
-  --color-card: var(--w-card-bg);
+  --color-canvas: #F7F1E5;
+  --color-ink: #1A1A1A;
 
-  /* Fonts */
-  --font-display: var(--w-font-display);
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-arts: #FF4D8D;
+  --color-tech: #2F5BFF;
+  --color-gaming: #B6FF3B;
+  --color-business: #FF7A1A;
+  --color-fun: #FFD60A;
 
-  /* Transitions */
-  --transition-world: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body: 'PlusJakarta', system-ui, sans-serif;
+}
+
+:root {
+  /* Canvas & Ink */
+  --c-base: #F7F1E5;
+  --c-ink: #1A1A1A;
+  --c-black: #1A1A1A;
+  --c-white: #FFFFFF;
+
+  /* Category colors */
+  --c-arts: #FF4D8D;
+  --c-tech: #2F5BFF;
+  --c-gaming: #B6FF3B;
+  --c-business: #FF7A1A;
+  --c-fun: #FFD60A;
+
+  /* Text colors on category blocks */
+  --c-arts-text: #1A1A1A;
+  --c-tech-text: #FFFFFF;
+  --c-gaming-text: #1A1A1A;
+  --c-business-text: #1A1A1A;
+  --c-fun-text: #1A1A1A;
+
+  --nav-h: 68px;
+
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body: 'PlusJakarta', system-ui, sans-serif;
 }
 
 /* ========================================================================
-   INK WORLD — warm parchment, ink black, saffron gold accent
-   ======================================================================== */
-[data-world="ink"] {
-  --w-bg: #F5F0E8;
-  --w-bg-secondary: #EDE7DA;
-  --w-text: #1A1A1A;
-  --w-text-secondary: #5A5A5A;
-  --w-accent: #C4841D;
-  --w-accent-glow: rgba(196, 132, 29, 0.4);
-  --w-border: rgba(26, 26, 26, 0.14);
-  --w-card-bg: #FDFAF5;
-  --w-font-display: 'AstraDisplay', 'Fraunces', Georgia, serif;
-
-  /* Ink-specific styling */
-  --w-card-radius: 4px;
-  --w-card-shadow: 0 2px 8px rgba(26, 26, 26, 0.06);
-  --w-card-border: 1px solid rgba(26, 26, 26, 0.12);
-  --w-heading-tracking: -0.015em;
-  --w-button-radius: 6px;
-}
-
-/* ========================================================================
-   CODE WORLD — near-black, neon mint-green accent, sharp edges
-   ======================================================================== */
-[data-world="code"] {
-  --w-bg: #0A0A0F;
-  --w-bg-secondary: #111118;
-  --w-text: #E0E0E0;
-  --w-text-secondary: #888898;
-  --w-accent: #00FFB2;
-  --w-accent-glow: rgba(0, 255, 178, 0.4);
-  --w-border: rgba(0, 255, 178, 0.18);
-  --w-card-bg: #14141F;
-  --w-font-display: 'AstraMono', 'JetBrains Mono', Consolas, monospace;
-
-  /* Code-specific styling */
-  --w-card-radius: 0px;
-  --w-card-shadow: 0 0 16px rgba(0, 255, 178, 0.08);
-  --w-card-border: 1px solid rgba(0, 255, 178, 0.2);
-  --w-heading-tracking: -0.035em;
-  --w-button-radius: 0px;
-}
-
-/* ========================================================================
-   Base styles
+   Base reset
    ======================================================================== */
 html {
-  scroll-behavior: auto; /* Lenis handles smooth scrolling */
-  background-color: var(--w-bg);
+  scroll-behavior: auto;
+  background-color: var(--c-base);
+  color: var(--c-ink);
 }
 
 body {
-  background-color: var(--w-bg);
-  color: var(--w-text);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  transition: var(--transition-world);
+  font-family: var(--font-body);
+  font-weight: 400;
+  background-color: var(--c-base);
+  color: var(--c-ink);
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ========================================================================
-   Heading sizes — locked line-height and font-size across both worlds
-   to eliminate any layout shift during world transition or font swap.
+   Typography Helpers
    ======================================================================== */
 .font-display {
-  font-family: var(--w-font-display), serif;
-  letter-spacing: var(--w-heading-tracking);
+  font-family: var(--font-display);
+  font-weight: 900;
 }
 
-.heading-display {
-  font-family: var(--w-font-display), serif;
-  letter-spacing: var(--w-heading-tracking);
+.text-hero {
+  font-size: clamp(4.2rem, 21vw, 16.5rem);
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  text-wrap: balance;
 }
 
-/* ========================================================================
-   World-aware Card Component
-   ======================================================================== */
-.world-card {
-  background: var(--w-card-bg);
-  border-radius: var(--w-card-radius);
-  box-shadow: var(--w-card-shadow);
-  border: var(--w-card-border);
-  transition: var(--transition-world), box-shadow 0.25s ease, transform 0.25s ease;
+.text-category {
+  font-size: clamp(3rem, 13vw, 9.5rem);
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  text-wrap: balance;
 }
 
-/* ========================================================================
-   CODE world grid & scanline texture background
-   ======================================================================== */
-[data-world="code"] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    linear-gradient(rgba(0, 255, 178, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 178, 0.03) 1px, transparent 1px),
-    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 178, 0.015) 2px, rgba(0, 255, 178, 0.015) 4px);
-  background-size: 32px 32px, 32px 32px, 100% 4px;
-  pointer-events: none;
+.text-section {
+  font-size: clamp(2.2rem, 7vw, 5.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
-/* ========================================================================
-   INK world paper grain texture overlay
-   ======================================================================== */
-[data-world="ink"] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: 
-    radial-gradient(rgba(26, 26, 26, 0.04) 1px, transparent 0),
-    radial-gradient(rgba(196, 132, 29, 0.02) 1px, transparent 0);
-  background-size: 24px 24px, 48px 48px;
-  background-position: 0 0, 12px 12px;
-  pointer-events: none;
+/* Sticker text stroke / offset shadow effect */
+.sticker-title {
+  text-shadow: 4px 4px 0px #1A1A1A;
+}
+
+.sticker-title-white {
+  text-shadow: 4px 4px 0px #FFFFFF;
 }
 
 /* ========================================================================
-   Placeholder Badge & Markers
+   Sticker Poster Component Styles
+   Hard 2px border, rounded corners (12-20px), hard 4px offset shadow.
+   Zero blurred shadows.
    ======================================================================== */
-.placeholder-tag {
+
+.sticker-card {
+  border: 2px solid #1A1A1A;
+  border-radius: 18px;
+  box-shadow: 4px 4px 0px #1A1A1A;
+  background-color: #FFFFFF;
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Press effect: shifts 2px on hover, flattens on active */
+@media (hover: hover) {
+  .sticker-press:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+}
+.sticker-press:active {
+  transform: translate(4px, 4px) !important;
+  box-shadow: 0px 0px 0px #1A1A1A !important;
+}
+
+/* Sticker Badge / Pill */
+.sticker-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.7rem;
-  font-family: var(--font-jetbrains-mono), monospace;
-  padding: 0.125rem 0.375rem;
-  border-radius: 2px;
-  background-color: var(--w-border);
-  color: var(--w-accent);
-  border: 1px dashed var(--w-accent);
-  letter-spacing: 0.05em;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid #1A1A1A;
+  border-radius: 9999px;
+  box-shadow: 2px 2px 0px #1A1A1A;
+  background-color: #FFFFFF;
+  color: #1A1A1A;
+}
+
+/* Sticker Button */
+.sticker-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid #1A1A1A;
+  border-radius: 9999px;
+  background-color: #1A1A1A;
+  color: #F7F1E5;
+  box-shadow: 4px 4px 0px rgba(26, 26, 26, 0.4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (hover: hover) {
+  .sticker-btn-primary:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px rgba(26, 26, 26, 0.4);
+  }
+}
+.sticker-btn-primary:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px rgba(26, 26, 26, 0.4);
+}
+
+.sticker-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid #1A1A1A;
+  border-radius: 9999px;
+  background-color: #FFFFFF;
+  color: #1A1A1A;
+  box-shadow: 4px 4px 0px #1A1A1A;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (hover: hover) {
+  .sticker-btn-secondary:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #1A1A1A;
+    background-color: #F7F1E5;
+  }
+}
+.sticker-btn-secondary:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #1A1A1A;
+}
+
+/* Category Backgrounds with 2px ink border */
+.bg-arts     { background-color: #FF4D8D !important; color: #1A1A1A !important; }
+.bg-tech     { background-color: #2F5BFF !important; color: #FFFFFF !important; }
+.bg-gaming   { background-color: #B6FF3B !important; color: #1A1A1A !important; }
+.bg-business { background-color: #FF7A1A !important; color: #1A1A1A !important; }
+.bg-fun      { background-color: #FFD60A !important; color: #1A1A1A !important; }
+
+/* Keyframe animations */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
 }
 
 /* ========================================================================
-   Paint-Wipe Sweep Keyframes
-   ======================================================================== */
-@keyframes paintWipeSweep {
-  0% {
-    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
-    opacity: 0.98;
-  }
-  45% {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-    opacity: 1;
-  }
-  55% {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-    opacity: 1;
-  }
-  100% {
-    clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
-    opacity: 0.98;
-  }
-}
-
-/* ========================================================================
-   Hero Title Entrance Animations (Step B)
-   ======================================================================== */
-@keyframes inkLetterBleed {
-  0% {
-    opacity: 0;
-    filter: blur(14px);
-    transform: scale(1.18);
-  }
-  50% {
-    opacity: 0.8;
-    filter: blur(4px);
-    transform: scale(1.05);
-  }
-  100% {
-    opacity: 1;
-    filter: blur(0px);
-    transform: scale(1);
-  }
-}
-
-@keyframes codeLetterGlitch {
-  0% {
-    opacity: 0;
-    transform: translate(-5px, 0);
-    text-shadow: -3px 0 #00FFB2, 3px 0 #FF0055;
-  }
-  25% {
-    opacity: 0.9;
-    transform: translate(3px, 0);
-    text-shadow: 3px 0 #00FFB2, -3px 0 #FF0055;
-  }
-  50% {
-    opacity: 0.4;
-    transform: translate(-2px, 0);
-    text-shadow: -2px 0 #00FFB2, 2px 0 #00E5FF;
-  }
-  75% {
-    opacity: 1;
-    transform: translate(1px, 0);
-    text-shadow: 1px 0 #00FFB2, -1px 0 #00FFB2;
-  }
-  100% {
-    opacity: 1;
-    transform: translate(0, 0);
-    text-shadow: 0 0 32px rgba(0, 255, 178, 0.6), 2px 0px 0px #00FFB2;
-  }
-}
-
-/* ========================================================================
-   Focus states — visible for keyboard, hidden for mouse
-   ======================================================================== */
-:focus-visible {
-  outline: 2px solid var(--w-accent);
-  outline-offset: 2px;
-}
-
-:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* ========================================================================
-   Reduced motion — disable heavy transitions globally
+   Reduced Motion
    ======================================================================== */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    transform: none !important;
   }
 }
 
-/* ========================================================================
-   Selection color
-   ======================================================================== */
 ::selection {
-  background: var(--w-accent);
-  color: var(--w-bg);
+  background: #1A1A1A;
+  color: #FFD60A;
 }
