@@ -19,6 +19,8 @@ export const EASINGS = {
 
   // Exponential deceleration for high-velocity reveals
   expoOut: 'expo.out',
+  expoInOut: 'expo.inOut',
+  power4Out: 'power4.out',
 }
 
 export const DURATIONS = {

@@ -274,6 +274,17 @@ body {
 }
 
 /* ========================================================================
+   Color Curtain Intro Sequence Pending States (Zero Flash on First Visit)
+   ======================================================================== */
+.astra-intro-pending #hero-astra {
+  visibility: hidden !important;
+}
+.astra-intro-pending .hero-anim-item,
+.astra-intro-pending header {
+  opacity: 0 !important;
+}
+
+/* ========================================================================
    Reduced Motion
    ======================================================================== */
 @media (prefers-reduced-motion: reduce) {

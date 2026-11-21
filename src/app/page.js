@@ -97,7 +97,7 @@ export default function Home() {
 
       {/* Decorative Edge Visual Anchors: 5 Category Color Bars (aria-hidden, zero horizontal scroll) */}
       <div
-        className="fixed left-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
+        className="hero-anim-item fixed left-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
         aria-hidden="true"
       >
         <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-r bg-[#FF4D8D]" />
@@ -108,7 +108,7 @@ export default function Home() {
       </div>
 
       <div
-        className="fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
+        className="hero-anim-item fixed right-0 top-1/2 -translate-y-1/2 flex flex-col gap-1 pointer-events-none select-none z-40"
         aria-hidden="true"
       >
         <span className="w-1 sm:w-1.5 h-5 sm:h-7 rounded-l bg-[#FFD60A]" />
@@ -126,7 +126,7 @@ export default function Home() {
           <div className="flex flex-col items-start relative">
             
             {/* Campus & Dates Pills */}
-            <div className="flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 flex-wrap">
+            <div className="hero-anim-item flex items-center gap-2.5 sm:gap-3 mb-4 sm:mb-5 flex-wrap">
               <span className="sticker-pill">
                 <span className="w-2 h-2 rounded-full bg-[#B6FF3B] border border-[#1A1A1A]" />
                 <span>Don Bosco College, Mampetta</span>
@@ -137,31 +137,34 @@ export default function Home() {
             </div>
 
             {/* Tilted Banner Label as Hero Visual Anchor */}
-            <div className="mb-1 sm:mb-2">
+            <div className="hero-anim-item mb-1 sm:mb-2">
               <span className="inline-block -rotate-2 bg-[#FFD60A] text-[#1A1A1A] border-2 border-[#1A1A1A] shadow-[2px_2px_0px_#1A1A1A] px-2.5 py-0.5 text-[10px] sm:text-xs font-display uppercase tracking-widest select-none">
                 MARCH 2026 // ANNUAL EDITION
               </span>
             </div>
 
-            {/* Giant Title (No Sun Mascot) */}
+            {/* Giant Title (Shared-Element Target) */}
             <div className="w-full">
-              <h1 className="font-display text-hero text-[#1A1A1A] tracking-tight leading-[0.88] select-none [text-wrap:balance]">
+              <h1
+                id="hero-astra"
+                className="inline-block font-display text-hero text-[#1A1A1A] tracking-tight leading-[0.88] select-none [text-wrap:balance]"
+              >
                 ASTRA
               </h1>
             </div>
 
             {/* Subtitle */}
-            <p className="font-medium text-lg sm:text-2xl lg:text-3xl text-[#1A1A1A]/90 mt-3 sm:mt-4 tracking-tight [text-wrap:balance] leading-snug max-w-3xl">
+            <p className="hero-anim-item font-medium text-lg sm:text-2xl lg:text-3xl text-[#1A1A1A]/90 mt-3 sm:mt-4 tracking-tight [text-wrap:balance] leading-snug max-w-3xl">
               INTER-COLLEGE ARTS & TECH FEST 2026
             </p>
 
             {/* Body Copy */}
-            <p className="font-normal text-xs sm:text-base text-[#1A1A1A]/75 mt-3 max-w-xl [text-wrap:balance] leading-relaxed">
+            <p className="hero-anim-item font-normal text-xs sm:text-base text-[#1A1A1A]/75 mt-3 max-w-xl [text-wrap:balance] leading-relaxed">
               The grand collision of raw human creativity and computational logic. Two days of stage spectacles, code sprints, esports, and cultural exhibitions.
             </p>
 
             {/* Action Buttons in Sticker Style */}
-            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 sm:gap-4 w-full sm:w-auto">
+            <div className="hero-anim-item mt-8 sm:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 sm:gap-4 w-full sm:w-auto">
               <Link
                 href="/register"
                 className="sticker-btn-primary px-8 py-3.5 sm:px-9 sm:py-4 text-xs sm:text-sm text-center"
