@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "gsap-web": {
+      "source": "iart-ai/web-animation-skills",
+      "commit": "ed3a045192679b24d32090ee7a983871311ababd",
+      "sourceType": "github",
+      "skillPath": "skills/gsap-web/SKILL.md",
+      "computedHash": "acd6638268c8bf2d9b0eb935472659dfbc0f072a5237d486e462235b32045177"
+    },
+    "threejs-scene": {
+      "source": "Moh4696/open-3d-skills",
+      "commit": "53beb899e77f65d50160a3765f36f5ddb8b3c19b",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-scene/SKILL.md",
+      "computedHash": "a58bb8062356c2b7e96bb1e69d4b49fa3073dcebf6859928c41190cce472b758"
+    }
+  }
+}
