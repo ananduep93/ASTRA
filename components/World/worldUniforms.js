@@ -10,6 +10,9 @@ export const worldUniforms = {
   uResolution: { value: new THREE.Vector2(1, 1) }, // drawing buffer size in pixels
 };
 
+/** Read-only snapshot of the hero state, for ?debug=1 tests. */
+export const heroStatus = { intro: 0, alpha: 0, skipped: false };
+
 /**
  * GLSL: how "white" the background is at a given pixel. White opens from the
  * centre of the screen outward as uInvert goes 0 -> 1 (light at the end of

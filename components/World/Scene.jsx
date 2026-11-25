@@ -10,7 +10,7 @@
  * Loop: frameloop="never" and advanced from gsap.ticker, so Lenis, GSAP and
  * three.js share one requestAnimationFrame loop. Paused while the tab is hidden.
  */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
@@ -20,7 +20,7 @@ import { scrollState, rangeLinear, rangeSmooth } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
 import HeroParticles from "./HeroParticles";
 import ArtsCluster from "./ArtsCluster";
-import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
+import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const BLACK = new THREE.Color(colors.black);
 const WHITE = new THREE.Color(colors.white);
@@ -107,6 +107,9 @@ function DebugStats({ tier, count }) {
       points: gl.info.render.points,
       dpr: gl.getPixelRatio(),
       progress: scrollState.smooth,
+      intro: heroStatus.intro,
+      alpha: heroStatus.alpha,
+      introSkipped: heroStatus.skipped,
     };
   });
   return null;
@@ -114,15 +117,22 @@ function DebugStats({ tier, count }) {
 
 export default function Scene({ tier = "high", debug = false }) {
   const cfg = TIERS[tier] ?? TIERS.mid;
+  const wrap = useRef(null);
 
   return (
     <div
+      ref={wrap}
       aria-hidden="true"
       data-world="canvas"
       data-tier={tier}
       className="pointer-events-none fixed inset-0 z-0"
+      // Fade the canvas in once it exists, so a reload mid-page never pops.
+      style={{ opacity: 0, transition: "opacity var(--astra-dur-fast) var(--astra-ease-out)" }}
     >
       <Canvas
+        onCreated={() => {
+          if (wrap.current) wrap.current.style.opacity = "1";
+        }}
         frameloop="never"
         dpr={cfg.dpr}
         gl={{ antialias: cfg.antialias, powerPreference: "high-performance" }}

@@ -75,6 +75,7 @@
 /* ------------------------------------------------------------------ hero */
 /* The first screen. Its height always stays, so the page never jumps. */
 .hero-title-wrap {
+  position: relative;
   display: flex;
   height: 100%;
   align-items: center;
@@ -83,11 +84,56 @@
   pointer-events: none;
 }
 
-/* Live canvas: the headline stays put (fixed) while it fades into the stars. */
+/* Live canvas: the (invisible) layout copy stays fixed in the viewport, so the
+   sampled letters line up with the screen even after scrolling. */
 html[data-world="live"] .hero-title-wrap {
   position: fixed;
   inset: 0;
   height: auto;
+}
+
+/* Real <h1>: visually hidden by default (the stars draw the title)... */
+.hero-h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ...and shown as plain text when there is no canvas. */
+html[data-world="static"] .hero-h1 {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-h1 {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+/* Same layout as the visible title, never painted: the particle sampler reads it. */
+.hero-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--astra-space-gutter);
+  visibility: hidden;
 }
 
 .hero-title {
@@ -114,12 +160,18 @@ html[data-world="live"] .hero-title-wrap {
   }
 }
 
-/* Scroll room for the flight. Only needed when the canvas is live. */
+/* Scroll room for the flight. Present from the first HTML (so a reload can
+   restore the scroll position exactly); removed only when there is no canvas. */
 .hero-spacer {
+  height: var(--hero-spacer);
+}
+html[data-world="static"] .hero-spacer {
   height: 0;
 }
-html[data-world="live"] .hero-spacer {
-  height: var(--hero-spacer);
+@media (prefers-reduced-motion: reduce) {
+  .hero-spacer {
+    height: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

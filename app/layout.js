@@ -42,6 +42,13 @@ export default function RootLayout({ children }) {
       <head>
         {/* Theme tokens from lib/theme.js, defined once */}
         <style dangerouslySetInnerHTML={{ __html: themeCssVars() }} />
+        {/* No JavaScript means no stars: show the real headline as plain text. */}
+        <noscript
+          dangerouslySetInnerHTML={{
+            __html:
+              "<style>.hero-h1{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none}</style>",
+          }}
+        />
       </head>
       <body>
         <Providers>

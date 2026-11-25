@@ -1,47 +1,31 @@
-"use client";
-
 /**
- * The real <h1>ASTRA 2027</h1>. Always in the DOM (screen readers, SEO).
+ * The hero headline. Server component, no client code.
  *
- * - Static (no canvas): plain centred text in the first screen.
- * - Live canvas (html[data-world="live"]): it becomes fixed and fades to
- *   opacity 0 over "headlineFade" while the stars take over. It is never
- *   display:none, so it stays readable to assistive tech.
- *
- * The particle letters are sampled from these exact word boxes
- * ([data-hero-word]), so the stars assemble where the text was.
+ * - The real <h1>ASTRA 2027</h1> is always in the DOM for screen readers and
+ *   SEO. It is visually hidden (sr-only, never display:none) because the stars
+ *   draw the title. It becomes visible only in static mode: reduced motion,
+ *   WebGL failure (html[data-world="static"]) or no JavaScript.
+ * - The invisible "ghost" copy below has the same font, size and line breaks.
+ *   The particle sampler reads its word boxes ([data-hero-word]) to know where
+ *   each letter pixel goes. It is never shown and hidden from assistive tech.
  */
-import { useEffect, useRef } from "react";
-import gsap from "gsap";
-import { hero } from "@/lib/motion";
-import { scrollState, rangeSmooth } from "@/lib/scrollStore";
-
-const isLive = () => document.documentElement.dataset.world === "live";
-
 export default function HeroTitle() {
-  const title = useRef(null);
-
-  useEffect(() => {
-    const tick = () => {
-      if (!title.current) return;
-      const fade = isLive() ? rangeSmooth(scrollState.smooth, hero.timeline.headlineFade) : 0;
-      title.current.style.opacity = String(1 - fade);
-    };
-    gsap.ticker.add(tick);
-    return () => gsap.ticker.remove(tick);
-  }, []);
-
   return (
     <section className="hero-stage h-svh">
       <div className="hero-title-wrap">
-        <h1 ref={title} className="hero-title">
-          <span className="hero-line">
-            <span data-hero-word>ASTRA</span>
-          </span>{" "}
-          <span className="hero-line">
-            <span data-hero-word>2027</span>
-          </span>
+        <h1 className="hero-title hero-h1">
+          <span className="hero-line">ASTRA</span> <span className="hero-line">2027</span>
         </h1>
+        <div className="hero-ghost" aria-hidden="true">
+          <div className="hero-title">
+            <span className="hero-line">
+              <span data-hero-word>ASTRA</span>
+            </span>{" "}
+            <span className="hero-line">
+              <span data-hero-word>2027</span>
+            </span>
+          </div>
+        </div>
       </div>
     </section>
   );

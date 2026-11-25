@@ -13,9 +13,9 @@ import * as THREE from "three";
 import gsap from "gsap";
 import { colors } from "@/lib/theme";
 import { hero } from "@/lib/motion";
-import { scrollState, rangeLinear, rangeSmooth } from "@/lib/scrollStore";
+import { scrollState, rangeLinear, rangeSmooth, snapSmooth } from "@/lib/scrollStore";
 import { waitForFont, sampleWords, fillTargets, seededRandom } from "@/lib/textTargets";
-import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
+import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const WHITE = new THREE.Color(colors.white);
 const BLACK = new THREE.Color(colors.black);
@@ -72,7 +72,8 @@ const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uFogNear, uFogFar;
   uniform float uScatterSize, uScatterAlpha;
-  uniform float uForm;      // 0..1 through the "form" range
+  uniform float uAlpha;     // global fade-in once the letter shapes are ready
+  uniform float uForm;      // 0..1 assembled (time-based intro, or finished by scrolling)
   uniform float uShimmer;   // 0..1 hold shimmer strength
   uniform float uStream;    // 0..1 through the "stream" range
   uniform float uScale;     // pixels per world unit at distance 1
@@ -131,7 +132,7 @@ const vertexShader = /* glsl */ `
     float twinkle = 1.0 - uShimmer * e * 0.25 * (0.5 + 0.5 * sin(t * 2.3 + aSeed * 60.0));
     float nearFade = smoothstep(0.3, 2.0, dist);                // fade points right at the lens
     float farFade = 1.0 - smoothstep(uFogNear, uFogFar, dist);  // fog: fade out, works on any background
-    vAlpha = nearFade * farFade * twinkle * glow;
+    vAlpha = nearFade * farFade * twinkle * glow * uAlpha;
     vRed = step(0.5, aKind) * (1.0 - step(1.5, aKind));
   }
 `;
@@ -191,6 +192,7 @@ export default function HeroParticles({ count }) {
           uDark: { value: BLACK },
           uRedColor: { value: new THREE.Color(colors.red) },
           uRedMix: { value: 0 },
+          uAlpha: { value: 0 },
         },
         transparent: true,
         depthWrite: false,
@@ -199,10 +201,14 @@ export default function HeroParticles({ count }) {
   );
   useEffect(() => () => material.dispose(), [material]);
 
-  // Sample the real <h1> into letter positions; again after a resize.
+  // Intro state. "waiting" until the letter shapes are sampled, then the frame
+  // loop starts the time-based assemble (or skips it if reloaded mid-page).
+  const intro = useRef({ phase: "waiting", start: 0, skip: false });
+
+  // Sample the headline into letter positions; again after a resize.
   useEffect(() => {
     const html = document.documentElement;
-    html.dataset.world = "live"; // DOM switches the headline to its fixed, fading mode
+    html.dataset.world = "live"; // DOM: headline is visually hidden, scroll room is added
     let cancelled = false;
     let timer;
     let lastW = window.innerWidth;
@@ -225,6 +231,7 @@ export default function HeroParticles({ count }) {
       fillTargets(target, sample, worldPerPx(), seededRandom(11), isAmbient);
       geo.attributes.aScatter.needsUpdate = true;
       geo.attributes.aTarget.needsUpdate = true;
+      if (intro.current.phase === "waiting") intro.current.phase = "sampled"; // first time only
     }
 
     resample();
@@ -253,11 +260,32 @@ export default function HeroParticles({ count }) {
     const u = field.material.uniforms;
     const p = scrollState.smooth;
     const tl = hero.timeline;
-    u.uTime.value = state.clock.elapsedTime;
-    u.uForm.value = rangeLinear(p, tl.form);
-    u.uShimmer.value = rangeSmooth(p, tl.shimmerIn) * (1 - rangeSmooth(p, tl.shimmerOut));
-    u.uRedMix.value = rangeSmooth(p, tl.redIn);
+    const now = state.clock.elapsedTime;
+    const it = intro.current;
+
+    // Start the intro on the first frame after the letters are sampled.
+    if (it.phase === "sampled") {
+      it.phase = "running";
+      it.start = now;
+      // Reloaded while already scrolled down: skip the assemble, just fade in.
+      it.skip = scrollState.progress > hero.intro.skipAbove;
+      if (it.skip) snapSmooth(); // show the exact state for this position, no glide
+    }
+    const running = it.phase === "running";
+    const elapsed = running ? now - it.start : 0;
+    const timeIntro = it.skip ? 1 : Math.min(1, elapsed / hero.intro.duration);
+    // Scrolling through the hold also finishes the assemble, so it is never left half-built.
+    const form = running ? Math.max(timeIntro, rangeLinear(p, tl.hold)) : 0;
+
+    u.uAlpha.value = running ? Math.min(1, elapsed / (it.skip ? hero.intro.skipFadeIn : hero.intro.fadeIn)) : 0;
+    u.uTime.value = now;
+    u.uForm.value = form;
+    u.uShimmer.value = rangeSmooth(form, hero.intro.shimmerIn) * (1 - rangeSmooth(p, tl.shimmerOut));
+    u.uRedMix.value = rangeSmooth(form, hero.intro.redIn);
     u.uStream.value = rangeLinear(p, tl.stream);
+    heroStatus.intro = form;
+    heroStatus.alpha = u.uAlpha.value;
+    heroStatus.skipped = it.skip;
     u.uScale.value = (state.size.height * state.viewport.dpr * 0.5) / Math.tan(HALF_FOV);
     u.uMaxPx.value = P.maxPointPx * state.viewport.dpr;
   });
