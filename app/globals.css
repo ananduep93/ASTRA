@@ -72,6 +72,56 @@
   }
 }
 
+/* ------------------------------------------------------------------ hero */
+/* The first screen. Its height always stays, so the page never jumps. */
+.hero-title-wrap {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--astra-space-gutter);
+  pointer-events: none;
+}
+
+/* Live canvas: the headline stays put (fixed) while it fades into the stars. */
+html[data-world="live"] .hero-title-wrap {
+  position: fixed;
+  inset: 0;
+  height: auto;
+}
+
+.hero-title {
+  font-family: var(--astra-font-display);
+  font-weight: 800;
+  line-height: var(--astra-lh-display);
+  text-align: center;
+  white-space: nowrap;
+  /* One line, as wide as the screen allows (hero-specific size, set here on purpose). */
+  font-size: min(19vw, 34vh);
+}
+
+.hero-line {
+  display: inline;
+}
+
+/* Tall screens (phones): two lines, ASTRA / 2027. */
+@media (orientation: portrait) {
+  .hero-title {
+    font-size: min(36vw, 24vh);
+  }
+  .hero-line {
+    display: block;
+  }
+}
+
+/* Scroll room for the flight. Only needed when the canvas is live. */
+.hero-spacer {
+  height: 0;
+}
+html[data-world="live"] .hero-spacer {
+  height: var(--hero-spacer);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

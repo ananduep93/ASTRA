@@ -3,158 +3,117 @@
 /**
  * The ONE fixed 3D canvas behind the whole site.
  *
- * Phase 1 test content: a field of small round white points with a barely
- * visible idle drift, and a camera that flies forward as scroll progress goes
- * 0 -> 1, settling smoothly (damped) when scrolling stops.
+ * Phase 2: the hero. Stars gather into "ASTRA 2027", hold, the camera flies
+ * through the letters (background inverts to white) and arrives at Arts.
+ * Everything reads scrollState.smooth, the shared smoothed scroll value.
  *
- * Loop: the canvas uses frameloop="never" and is advanced from gsap.ticker,
- * so Lenis, GSAP and three.js all share one requestAnimationFrame loop.
+ * Loop: frameloop="never" and advanced from gsap.ticker, so Lenis, GSAP and
+ * three.js share one requestAnimationFrame loop. Paused while the tab is hidden.
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
 import { colors } from "@/lib/theme";
-import { world, prefersReducedMotion } from "@/lib/motion";
-import { scrollState } from "@/lib/scrollStore";
+import { hero } from "@/lib/motion";
+import { scrollState, rangeLinear, rangeSmooth } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
+import HeroParticles from "./HeroParticles";
+import ArtsCluster from "./ArtsCluster";
+import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
 
-const CAMERA_START_Z = 6;
-const CAMERA_FOV = 60;
+const BLACK = new THREE.Color(colors.black);
+const WHITE = new THREE.Color(colors.white);
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Drives R3F from gsap.ticker instead of R3F's own requestAnimationFrame. */
 function TickerDriver() {
   const advance = useThree((s) => s.advance);
   useEffect(() => {
-    // With frameloop="never", R3F expects the timestamp in SECONDS.
-    // gsap.ticker already passes seconds, so hand it straight through.
-    const tick = (time) => advance(time);
+    // With frameloop="never", R3F expects the timestamp in SECONDS (gsap gives seconds).
+    const tick = (time) => {
+      if (document.hidden) return; // pause rendering when the tab is hidden
+      advance(time);
+    };
     gsap.ticker.add(tick);
     return () => gsap.ticker.remove(tick);
   }, [advance]);
   return null;
 }
 
-// Round, soft-edged points with per-point size. Size shrinks with distance
-// (size attenuation) and fades into the scene fog.
-const vertexShader = /* glsl */ `
-  attribute float aSize;
-  uniform float uScale;
-  #include <fog_pars_vertex>
-  void main() {
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = clamp(aSize * uScale / -mvPosition.z, 1.0, 10.0);
-    gl_Position = projectionMatrix * mvPosition;
-    #include <fog_vertex>
-  }
-`;
+/** Camera path and the black -> white inversion, both from the shared value. */
+function WorldRig() {
+  useFrame((state) => {
+    const p = scrollState.smooth;
+    const tl = hero.timeline;
+    const e = easeInOutCubic(rangeLinear(p, tl.camera));
+    state.camera.position.z = hero.camera.startZ + (hero.camera.endZ - hero.camera.startZ) * e;
 
-const fragmentShader = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uOpacity;
-  #include <fog_pars_fragment>
-  void main() {
-    float d = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.15, d); // soft round dot
-    if (alpha < 0.01) discard;
-    gl_FragColor = vec4(uColor, alpha * uOpacity);
-    #include <colorspace_fragment>
-    #include <fog_fragment>
-  }
-`;
-
-/**
- * Positions in a long box in front of the camera, plus a size per point.
- * Seeded random, so the field is identical on every load.
- */
-function makeField(count, depth) {
-  let seed = 20270;
-  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const positions = new Float32Array(count * 3);
-  const sizes = new Float32Array(count);
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (rand() - 0.5) * 16;
-    positions[i * 3 + 1] = (rand() - 0.5) * 12;
-    positions[i * 3 + 2] = CAMERA_START_Z - rand() * (depth + 8);
-    // Most points tiny; about 1 in 25 noticeably bigger.
-    sizes[i] = rand() > 0.96 ? 0.05 + rand() * 0.03 : 0.015 + rand() * 0.015;
-  }
-  return { positions, sizes };
+    worldUniforms.uInvert.value = rangeSmooth(p, tl.invert);
+    state.gl.getDrawingBufferSize(worldUniforms.uResolution.value);
+  });
+  return null;
 }
 
-function StarField({ count, depth, reducedMotion }) {
-  const points = useRef();
-  const twist = useRef(0);
-  const drift = useRef(0);
+const backdropVertex = /* glsl */ `
+  void main() { gl_Position = vec4(position.xy, 0.0, 1.0); } // full-screen, ignores the camera
+`;
+const backdropFragment = /* glsl */ `
+  uniform vec3 uBlack;
+  uniform vec3 uWhite;
+  ${bgMaskGLSL}
+  void main() {
+    gl_FragColor = vec4(mix(uBlack, uWhite, bgMask(gl_FragCoord.xy)), 1.0);
+    #include <colorspace_fragment>
+  }
+`;
 
-  const { positions, sizes } = useMemo(() => makeField(count, depth), [count, depth]);
-
+/** Full-screen background: black, opening to white from the centre during the flight. */
+function Backdrop() {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        vertexShader,
-        fragmentShader,
-        uniforms: THREE.UniformsUtils.merge([
-          THREE.UniformsLib.fog,
-          {
-            uColor: { value: new THREE.Color(colors.white) },
-            uOpacity: { value: 0.9 },
-            uScale: { value: 1 },
-          },
-        ]),
-        transparent: true,
+        vertexShader: backdropVertex,
+        fragmentShader: backdropFragment,
+        uniforms: { ...worldUniforms, uBlack: { value: BLACK }, uWhite: { value: WHITE } },
+        depthTest: false,
         depthWrite: false,
-        fog: true,
       }),
     []
   );
   useEffect(() => () => material.dispose(), [material]);
-
-  useFrame((state, rawDelta) => {
-    const delta = Math.min(rawDelta, world.maxDelta);
-    const { camera, size, viewport } = state;
-    const field = points.current;
-    if (!field) return;
-
-    // Pixels per world unit at distance 1, for size attenuation.
-    field.material.uniforms.uScale.value =
-      (size.height * viewport.dpr * 0.5) / Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2));
-
-    // Camera: target comes only from the shared scroll value; damping makes it
-    // glide there and settle smoothly once scrolling stops.
-    const targetZ = CAMERA_START_Z - scrollState.progress * depth;
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, targetZ, world.cameraDamping, delta);
-
-    // Field turn: a little from scroll (damped) plus an almost invisible idle drift.
-    twist.current = THREE.MathUtils.damp(
-      twist.current,
-      scrollState.progress * world.scrollTwist,
-      world.twistDamping,
-      delta
-    );
-    if (!reducedMotion) drift.current += world.idleDrift * delta;
-
-    field.rotation.z = twist.current + drift.current;
-    field.position.y = reducedMotion
-      ? 0
-      : Math.sin(state.clock.elapsedTime * world.idleBobSpeed) * world.idleBobAmplitude;
-  });
-
   return (
-    <points ref={points} material={material}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-      </bufferGeometry>
-    </points>
+    <mesh material={material} renderOrder={-1} frustumCulled={false}>
+      <planeGeometry args={[2, 2]} />
+    </mesh>
   );
 }
 
-export default function Scene({ tier = "high" }) {
+/**
+ * Only with ?debug=1: exposes draw calls etc. on window.__astraDebug, and the
+ * renderer on window.__astraRender so tests can time a real render.
+ */
+function DebugStats({ tier, count }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    window.__astraRender = { gl, scene, camera };
+    return () => delete window.__astraRender;
+  }, [gl, scene, camera]);
+  useFrame(({ gl }) => {
+    window.__astraDebug = {
+      tier,
+      particles: count,
+      calls: gl.info.render.calls,
+      points: gl.info.render.points,
+      dpr: gl.getPixelRatio(),
+      progress: scrollState.smooth,
+    };
+  });
+  return null;
+}
+
+export default function Scene({ tier = "high", debug = false }) {
   const cfg = TIERS[tier] ?? TIERS.mid;
-  const reducedMotion = prefersReducedMotion();
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-  const depth = isMobile ? cfg.depth * 0.7 : cfg.depth; // shorter trip on phones
 
   return (
     <div
@@ -166,13 +125,16 @@ export default function Scene({ tier = "high" }) {
       <Canvas
         frameloop="never"
         dpr={cfg.dpr}
-        gl={{ antialias: cfg.antialias, powerPreference: "high-performance", alpha: true }}
-        camera={{ position: [0, 0, CAMERA_START_Z], fov: CAMERA_FOV, near: 0.1, far: 60 }}
+        gl={{ antialias: cfg.antialias, powerPreference: "high-performance" }}
+        camera={{ position: [0, 0, hero.camera.startZ], fov: hero.camera.fov, near: 0.1, far: 80 }}
         fallback={null}
       >
-        <fog attach="fog" args={[colors.black, 2, 16]} />
         <TickerDriver />
-        <StarField count={cfg.particles} depth={depth} reducedMotion={reducedMotion} />
+        <WorldRig />
+        <Backdrop />
+        <HeroParticles count={cfg.particles} />
+        <ArtsCluster count={cfg.arts} />
+        {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>
   );

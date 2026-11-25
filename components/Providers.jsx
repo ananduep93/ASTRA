@@ -12,8 +12,8 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
-import { scrollConfig, REDUCED_MOTION_QUERY } from "@/lib/motion";
-import { setLenis, writeScroll } from "@/lib/scrollStore";
+import { scrollConfig, scrollSmoothing, REDUCED_MOTION_QUERY } from "@/lib/motion";
+import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
 if (typeof window !== "undefined") {
@@ -34,15 +34,15 @@ export default function Providers({ children }) {
       });
       setLenis(lenis);
 
-      const onScroll = (l) => {
-        ScrollTrigger.update();
-        writeScroll(l.animatedScroll, l.limit, l.velocity);
-      };
-      lenis.on("scroll", onScroll);
+      lenis.on("scroll", ScrollTrigger.update);
       writeScroll(lenis.animatedScroll, lenis.limit, 0);
 
-      // gsap.ticker gives seconds; Lenis wants milliseconds.
-      const tick = (time) => lenis.raf(time * 1000);
+      const tick = (time, deltaMs) => {
+        lenis.raf(time * 1000); // gsap.ticker gives seconds; Lenis wants milliseconds
+        // Read every frame (not only on scroll) so a page-height change is picked up too.
+        writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
+        stepSmooth(Math.min(deltaMs / 1000, scrollSmoothing.maxDelta), scrollSmoothing.damping);
+      };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and
       // DOM read this frame's scroll value, not last frame's.
       gsap.ticker.add(tick, false, true);
@@ -64,7 +64,14 @@ export default function Providers({ children }) {
       read();
       window.addEventListener("scroll", read, { passive: true });
       window.addEventListener("resize", read);
+      // Reduced motion: no glide, the smoothed value just equals the real one.
+      const tick = () => {
+        read();
+        stepSmooth(1, 1e6);
+      };
+      gsap.ticker.add(tick, false, true);
       return () => {
+        gsap.ticker.remove(tick);
         window.removeEventListener("scroll", read);
         window.removeEventListener("resize", read);
       };
