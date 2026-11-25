@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "check:shapes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-shapes.mjs",
+    "prebuild": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-shapes.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
