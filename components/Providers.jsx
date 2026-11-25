@@ -13,7 +13,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
-import { scrollConfig, scrollSmoothing, REDUCED_MOTION_QUERY } from "@/lib/motion";
+import { scrollConfig, scrollSmoothing, touchScroll, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
 import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
@@ -32,17 +32,22 @@ export default function Providers({ children }) {
         lerp: scrollConfig.lerp,
         wheelMultiplier: scrollConfig.wheelMultiplier,
         touchMultiplier: scrollConfig.touchMultiplier,
+        syncTouch: false, // never take over touch: phones keep their own native scrolling
       });
       setLenis(lenis);
 
       lenis.on("scroll", ScrollTrigger.update);
       writeScroll(lenis.animatedScroll, lenis.limit, 0);
 
+      // Touch screens: calmer shared value with a per-second cap (see touchScroll in lib/motion.js).
+      const touch = window.matchMedia(TOUCH_QUERY);
       const tick = (time, deltaMs) => {
         lenis.raf(time * 1000); // gsap.ticker gives seconds; Lenis wants milliseconds
         // Read every frame (not only on scroll) so a page-height change is picked up too.
         writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
-        stepSmooth(Math.min(deltaMs / 1000, scrollSmoothing.maxDelta), scrollSmoothing.damping);
+        const dt = Math.min(deltaMs / 1000, scrollSmoothing.maxDelta);
+        if (touch.matches) stepSmooth(dt, touchScroll.damping, touchScroll.maxProgressPerSecond);
+        else stepSmooth(dt, scrollSmoothing.damping);
       };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and
       // DOM read this frame's scroll value, not last frame's.

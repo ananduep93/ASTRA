@@ -7,13 +7,22 @@ import ProgressMarks from "@/components/Journey/ProgressMarks";
 import ProgramDialog from "@/components/Journey/ProgramDialog";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
 import { TOTAL_SCROLL_VH } from "@/lib/journey";
+import { touchScroll } from "@/lib/motion";
 
 export default function Home() {
   return (
     <main>
       <HeroTitle />
-      {/* Scroll room for the hero flight and the five stops (removed in static mode). */}
-      <div aria-hidden="true" className="journey-spacer" style={{ "--journey-spacer": `${TOTAL_SCROLL_VH}vh` }} />
+      {/* Scroll room for the hero flight and the five stops (removed in static mode).
+          Touch screens get touchScroll.lengthMultiplier times more (CSS, so no reload jump). */}
+      <div
+        aria-hidden="true"
+        className="journey-spacer"
+        style={{
+          "--journey-spacer": `${TOTAL_SCROLL_VH}vh`,
+          "--touch-length": touchScroll.lengthMultiplier,
+        }}
+      />
       <SquadJourney />
       <ProgressMarks />
       <ProgramDialog />

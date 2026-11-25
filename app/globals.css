@@ -166,6 +166,12 @@ html[data-world="static"] .hero-h1 {
 .journey-spacer {
   height: var(--journey-spacer);
 }
+/* Touch screens: same story over more finger travel. Same query as TOUCH_QUERY in lib/motion.js. */
+@media (pointer: coarse) {
+  .journey-spacer {
+    height: calc(var(--journey-spacer) * var(--touch-length));
+  }
+}
 
 /* Each squad stop: a fixed overlay (not pinned), hidden until the camera has
    arrived. Its text colour comes from its background tone. */
