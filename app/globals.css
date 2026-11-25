@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@import "lenis/dist/lenis.css";
+
+/*
+ * Token VALUES live in lib/theme.js and arrive as --astra-* variables on :root
+ * (injected by app/layout.js). This block only maps them to Tailwind names,
+ * so utilities like bg-ink, text-paper, font-display, text-h1, p-gutter work.
+ */
+@theme inline {
+  --color-ink: var(--astra-black);
+  --color-paper: var(--astra-white);
+  --color-signal: var(--astra-red); /* glows and shapes only */
+
+  --font-display: var(--astra-font-display);
+  --font-body: var(--astra-font-body);
+
+  --text-small: var(--astra-text-small);
+  --text-body: var(--astra-text-body);
+  --text-lead: var(--astra-text-lead);
+  --text-h3: var(--astra-text-h3);
+  --text-h2: var(--astra-text-h2);
+  --text-h1: var(--astra-text-h1);
+  --text-display: var(--astra-text-display);
+
+  --spacing-3xs: var(--astra-space-3xs);
+  --spacing-2xs: var(--astra-space-2xs);
+  --spacing-xs: var(--astra-space-xs);
+  --spacing-sm: var(--astra-space-sm);
+  --spacing-md: var(--astra-space-md);
+  --spacing-lg: var(--astra-space-lg);
+  --spacing-xl: var(--astra-space-xl);
+  --spacing-2xl: var(--astra-space-2xl);
+  --spacing-gutter: var(--astra-space-gutter);
+
+  --ease-out: var(--astra-ease-out);
+  --ease-in-out: var(--astra-ease-inOut);
+  --ease-expo: var(--astra-ease-expo);
+}
+
+@layer base {
+  html {
+    background: var(--astra-black);
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--astra-black);
+    color: var(--astra-white);
+    font-family: var(--astra-font-body);
+    font-size: var(--astra-text-body);
+    line-height: var(--astra-lh-body);
+    overflow-x: clip; /* never allow sideways scroll */
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--astra-font-display);
+    line-height: var(--astra-lh-heading);
+    font-weight: 800;
+  }
+
+  ::selection {
+    background: var(--astra-white);
+    color: var(--astra-black);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--astra-white);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--astra-dur-fast) !important;
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
+}
