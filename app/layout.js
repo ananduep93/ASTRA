@@ -46,7 +46,9 @@ export default function RootLayout({ children }) {
         <noscript
           dangerouslySetInnerHTML={{
             __html:
-              "<style>.hero-h1{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none}</style>",
+              "<style>.hero-h1{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none}" +
+              ".journey-spacer{height:0}.squad-stop{position:relative;inset:auto;min-height:100svh;--stop-fg:var(--astra-white);visibility:visible;pointer-events:auto}" +
+              ".roster-dot{background:var(--astra-red)}.progress-marks{display:none}</style>",
           }}
         />
       </head>

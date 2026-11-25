@@ -16,6 +16,7 @@ import { hero } from "@/lib/motion";
 import { scrollState, rangeLinear, rangeSmooth, snapSmooth } from "@/lib/scrollStore";
 import { waitForFont, sampleWords, fillTargets, seededRandom } from "@/lib/textTargets";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
+import { heroProgress, toVh } from "@/lib/journey";
 
 const WHITE = new THREE.Color(colors.white);
 const BLACK = new THREE.Color(colors.black);
@@ -151,7 +152,7 @@ const fragmentShader = /* glsl */ `
     float a = smoothstep(0.5, 0.12, d) * vAlpha; // soft round dot
     if (a < 0.01) discard;
     // Always the opposite of the background right behind this dot.
-    vec3 col = mix(uLight, uDark, bgMask(gl_FragCoord.xy));
+    vec3 col = mix(uLight, uDark, bgWhite(gl_FragCoord.xy));
     col = mix(col, uRedColor, vRed * uRedMix);
     gl_FragColor = vec4(col, a);
     #include <colorspace_fragment>
@@ -258,7 +259,7 @@ export default function HeroParticles({ count }) {
     const field = points.current;
     if (!field) return;
     const u = field.material.uniforms;
-    const p = scrollState.smooth;
+    const p = heroProgress(toVh(scrollState.smooth)); // hero runs until the camera reaches Arts
     const tl = hero.timeline;
     const now = state.clock.elapsedTime;
     const it = intro.current;

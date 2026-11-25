@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { scrollConfig, scrollSmoothing, REDUCED_MOTION_QUERY } from "@/lib/motion";
@@ -17,7 +18,7 @@ import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
+  gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 }
 
 export default function Providers({ children }) {

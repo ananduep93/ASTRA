@@ -160,17 +160,277 @@ html[data-world="static"] .hero-h1 {
   }
 }
 
-/* Scroll room for the flight. Present from the first HTML (so a reload can
-   restore the scroll position exactly); removed only when there is no canvas. */
-.hero-spacer {
-  height: var(--hero-spacer);
+/* --------------------------------------------------------------- journey */
+/* Scroll room for the flight and the five stops. Present from the first HTML
+   (so a reload can restore the scroll position exactly). */
+.journey-spacer {
+  height: var(--journey-spacer);
 }
-html[data-world="static"] .hero-spacer {
+
+/* Each squad stop: a fixed overlay (not pinned), hidden until the camera has
+   arrived. Its text colour comes from its background tone. */
+.squad-stop {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  gap: var(--astra-space-md);
+  /* right padding leaves room for the progress marks */
+  padding: var(--astra-space-lg) calc(var(--astra-space-gutter) + 2rem) var(--astra-space-lg) var(--astra-space-gutter);
+  color: var(--stop-fg);
+  visibility: hidden;
+  pointer-events: none;
+}
+.squad-stop[data-tone="light"] {
+  --stop-fg: var(--astra-black);
+}
+.squad-stop[data-tone="dark"] {
+  --stop-fg: var(--astra-white);
+}
+
+.squad-name {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h1);
+  font-weight: 800;
+  line-height: var(--astra-lh-display);
+  text-transform: uppercase;
+}
+
+.squad-brief {
+  margin-top: var(--astra-space-2xs);
+  font-size: var(--astra-text-lead);
+}
+
+.roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--astra-space-3xs);
+  list-style: none;
+}
+
+.roster-item {
+  display: flex;
+  min-height: 44px; /* comfortable tap target */
+  align-items: center;
+  gap: 0.75rem;
+  margin-inline: -0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--astra-text-lead);
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+.roster-item:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* The anchor for the 3D program star. Drawn by the canvas when live. */
+.roster-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Wide screens: name on the left, roster spread like a constellation on the right. */
+@media (min-width: 900px) {
+  .squad-stop {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: center;
+    column-gap: var(--astra-space-xl);
+  }
+  .roster {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: var(--astra-space-md) var(--astra-space-lg);
+  }
+  .roster li:nth-child(3n + 2) {
+    margin-top: var(--astra-space-lg);
+  }
+  .roster li:nth-child(3n) {
+    margin-top: var(--astra-space-sm);
+  }
+}
+
+/* Which squad you are at: five small marks on the right edge. */
+.progress-marks {
+  position: fixed;
+  top: 50%;
+  right: var(--astra-space-gutter);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  color: var(--marks-fg);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.progress-marks[data-tone="light"] {
+  --marks-fg: var(--astra-black);
+}
+.progress-marks[data-tone="dark"] {
+  --marks-fg: var(--astra-white);
+}
+.progress-mark {
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.45;
+  transform: scaleX(0.45);
+  transform-origin: right;
+  transition:
+    transform var(--astra-dur-fast) var(--astra-ease-out),
+    opacity var(--astra-dur-fast) var(--astra-ease-out);
+}
+.progress-mark[aria-current="step"] {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* --------------------------------------------------- program detail panel */
+.program-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+.program-dialog::backdrop {
+  background: transparent;
+}
+.program-dialog__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--astra-black) 60%, transparent);
+}
+.program-dialog__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  /* leave a dimmed strip on phones so there is always somewhere to tap to close */
+  width: min(30rem, calc(100% - 3rem));
+  flex-direction: column;
+  gap: var(--astra-space-md);
+  padding: var(--astra-space-lg) var(--astra-space-gutter);
+  overflow-y: auto;
+  background: var(--astra-white);
+  color: var(--astra-black);
+}
+.program-dialog__close {
+  align-self: flex-end;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.program-dialog__title {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h2);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+}
+.program-dialog__squad {
+  font-size: var(--astra-text-lead);
+}
+.program-dialog__facts {
+  display: grid;
+  gap: var(--astra-space-xs);
+}
+.program-dialog__facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--astra-space-sm);
+  padding-bottom: var(--astra-space-2xs);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.program-dialog__facts dt {
+  font-weight: 600;
+}
+.program-dialog__register {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 2px;
+  background: var(--astra-black);
+  color: var(--astra-white);
+  font: inherit;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.program-dialog__close:focus-visible,
+.program-dialog__register:focus-visible {
+  outline: 2px solid var(--astra-black);
+  outline-offset: 2px;
+}
+html:has(.program-dialog[open]) {
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ static mode */
+/* Low tier, reduced motion, no WebGL or no JavaScript: plain stacked sections,
+   black and white, everything visible. (Same rules three times: attribute set
+   by JS, the reduced-motion media query before JS runs, and <noscript>.) */
+html[data-world="static"] .journey-spacer {
   height: 0;
 }
+html[data-world="static"] .squad-stop {
+  position: relative;
+  inset: auto;
+  min-height: 100svh;
+  --stop-fg: var(--astra-white);
+  visibility: visible;
+  pointer-events: auto;
+}
+html[data-world="static"] .roster-dot {
+  background: var(--astra-red);
+}
+html[data-world="static"] .progress-marks {
+  display: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  .hero-spacer {
+  .journey-spacer {
     height: 0;
+  }
+  .squad-stop {
+    position: relative;
+    inset: auto;
+    min-height: 100svh;
+    --stop-fg: var(--astra-white);
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .roster-dot {
+    background: var(--astra-red);
+  }
+  .progress-marks {
+    display: none;
   }
 }
 

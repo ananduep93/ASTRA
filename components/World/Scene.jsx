@@ -3,9 +3,11 @@
 /**
  * The ONE fixed 3D canvas behind the whole site.
  *
- * Phase 2: the hero. Stars gather into "ASTRA 2027", hold, the camera flies
- * through the letters (background inverts to white) and arrives at Arts.
- * Everything reads scrollState.smooth, the shared smoothed scroll value.
+ * Hero: stars assemble "ASTRA 2027", the camera flies through the letters and
+ * arrives at Arts. Journey: the same camera glides along one spline through the
+ * five squad clusters, the background alternating white / black.
+ * Everything reads scrollState.smooth, the shared smoothed scroll value,
+ * through the scroll map in lib/journey.js.
  *
  * Loop: frameloop="never" and advanced from gsap.ticker, so Lenis, GSAP and
  * three.js share one requestAnimationFrame loop. Paused while the tab is hidden.
@@ -16,15 +18,22 @@ import * as THREE from "three";
 import gsap from "gsap";
 import { colors } from "@/lib/theme";
 import { hero } from "@/lib/motion";
-import { scrollState, rangeLinear, rangeSmooth } from "@/lib/scrollStore";
+import { scrollState } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
+import { toVh, toneAt, cameraAt, activeStopAt, CAMERA_POINTS } from "@/lib/journey";
 import HeroParticles from "./HeroParticles";
-import ArtsCluster from "./ArtsCluster";
+import SquadClusters from "./SquadClusters";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const BLACK = new THREE.Color(colors.black);
 const WHITE = new THREE.Color(colors.white);
-const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+// One smooth path through every viewpoint (start, Arts, Tech, Gaming, Business, Fun).
+const CAMERA_CURVE = new THREE.CatmullRomCurve3(
+  CAMERA_POINTS.map((p) => new THREE.Vector3(...p)),
+  false,
+  "centripetal"
+);
 
 /** Drives R3F from gsap.ticker instead of R3F's own requestAnimationFrame. */
 function TickerDriver() {
@@ -41,15 +50,21 @@ function TickerDriver() {
   return null;
 }
 
-/** Camera path and the black -> white inversion, both from the shared value. */
+/** Camera along the spline and the background tone, both from the shared value. */
 function WorldRig() {
+  const look = useMemo(() => new THREE.Vector3(), []);
   useFrame((state) => {
-    const p = scrollState.smooth;
-    const tl = hero.timeline;
-    const e = easeInOutCubic(rangeLinear(p, tl.camera));
-    state.camera.position.z = hero.camera.startZ + (hero.camera.endZ - hero.camera.startZ) * e;
+    const s = toVh(scrollState.smooth);
+    const cam = cameraAt(s);
+    CAMERA_CURVE.getPoint(cam.t, state.camera.position);
+    if (cam.look) look.set(cam.look[0], cam.look[1], cam.look[2]);
+    else look.copy(state.camera.position).z -= 1; // hero: straight ahead
+    state.camera.lookAt(look);
 
-    worldUniforms.uInvert.value = rangeSmooth(p, tl.invert);
+    const tone = toneAt(s);
+    worldUniforms.uFromW.value = tone.fromW;
+    worldUniforms.uToW.value = tone.toW;
+    worldUniforms.uMix.value = tone.mix;
     state.gl.getDrawingBufferSize(worldUniforms.uResolution.value);
   });
   return null;
@@ -63,12 +78,12 @@ const backdropFragment = /* glsl */ `
   uniform vec3 uWhite;
   ${bgMaskGLSL}
   void main() {
-    gl_FragColor = vec4(mix(uBlack, uWhite, bgMask(gl_FragCoord.xy)), 1.0);
+    gl_FragColor = vec4(mix(uBlack, uWhite, bgWhite(gl_FragCoord.xy)), 1.0);
     #include <colorspace_fragment>
   }
 `;
 
-/** Full-screen background: black, opening to white from the centre during the flight. */
+/** Full-screen background; each new tone opens from the centre of the screen. */
 function Backdrop() {
   const material = useMemo(
     () =>
@@ -100,6 +115,7 @@ function DebugStats({ tier, count }) {
     return () => delete window.__astraRender;
   }, [gl, scene, camera]);
   useFrame(({ gl }) => {
+    const s = toVh(scrollState.smooth);
     window.__astraDebug = {
       tier,
       particles: count,
@@ -107,6 +123,8 @@ function DebugStats({ tier, count }) {
       points: gl.info.render.points,
       dpr: gl.getPixelRatio(),
       progress: scrollState.smooth,
+      vh: s,
+      stop: activeStopAt(s),
       intro: heroStatus.intro,
       alpha: heroStatus.alpha,
       introSkipped: heroStatus.skipped,
@@ -136,14 +154,14 @@ export default function Scene({ tier = "high", debug = false }) {
         frameloop="never"
         dpr={cfg.dpr}
         gl={{ antialias: cfg.antialias, powerPreference: "high-performance" }}
-        camera={{ position: [0, 0, hero.camera.startZ], fov: hero.camera.fov, near: 0.1, far: 80 }}
+        camera={{ position: [0, 0, hero.camera.startZ], fov: hero.camera.fov, near: 0.1, far: 90 }}
         fallback={null}
       >
         <TickerDriver />
         <WorldRig />
         <Backdrop />
         <HeroParticles count={cfg.particles} />
-        <ArtsCluster count={cfg.arts} />
+        <SquadClusters ambient={cfg.ambient} dustPerStar={cfg.dustPerStar} haze={cfg.haze} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>

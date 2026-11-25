@@ -32,7 +32,8 @@ export default function World() {
   const [tier] = useState(() => (prefersReducedMotion() ? "none" : detectQuality()));
   const [debug] = useState(readDebug);
 
-  if (tier === "none") return <Fallback />;
+  // No WebGL, a low-end device or reduced motion: the static page.
+  if (tier === "none" || tier === "low") return <Fallback />;
 
   return (
     <SceneErrorBoundary>
