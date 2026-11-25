@@ -4,6 +4,7 @@ import { Big_Shoulders, Instrument_Sans } from "next/font/google";
 import Providers from "@/components/Providers";
 import SceneLoader from "@/components/World/SceneLoader";
 import { themeCssVars, colors } from "@/lib/theme";
+import { staticCss, noscriptCss } from "@/lib/staticCss";
 import "./globals.css";
 
 const display = Big_Shoulders({
@@ -42,15 +43,10 @@ export default function RootLayout({ children }) {
       <head>
         {/* Theme tokens from lib/theme.js, defined once */}
         <style dangerouslySetInnerHTML={{ __html: themeCssVars() }} />
-        {/* No JavaScript means no stars: show the real headline as plain text. */}
-        <noscript
-          dangerouslySetInnerHTML={{
-            __html:
-              "<style>.hero-h1{position:static;width:auto;height:auto;margin:0;overflow:visible;clip-path:none}" +
-              ".journey-spacer{height:0}.squad-stop{position:relative;inset:auto;min-height:100svh;--stop-fg:var(--astra-white);visibility:visible;pointer-events:auto}" +
-              ".roster-dot{background:var(--astra-red)}.progress-marks{display:none}</style>",
-          }}
-        />
+        {/* Static mode (low tier / no WebGL / reduced motion): one rule list, lib/staticCss.js */}
+        <style dangerouslySetInnerHTML={{ __html: staticCss() }} />
+        {/* No JavaScript means no stars: the same static layout. */}
+        <noscript dangerouslySetInnerHTML={{ __html: `<style>${noscriptCss()}</style>` }} />
       </head>
       <body>
         <Providers>

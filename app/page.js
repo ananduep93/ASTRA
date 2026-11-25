@@ -4,6 +4,7 @@
 import HeroTitle from "@/components/Hero/HeroTitle";
 import SquadJourney from "@/components/Journey/SquadJourney";
 import ProgressMarks from "@/components/Journey/ProgressMarks";
+import ProgramIndex from "@/components/Journey/ProgramIndex";
 import ProgramDialog from "@/components/Journey/ProgramDialog";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
 import { TOTAL_SCROLL_VH } from "@/lib/journey";
@@ -24,6 +25,7 @@ export default function Home() {
         }}
       />
       <SquadJourney />
+      <ProgramIndex />
       <ProgressMarks />
       <ProgramDialog />
       <ScrollReadout />
