@@ -20,9 +20,20 @@ import { colors } from "@/lib/theme";
 import { hero } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
-import { toVh, toneAt, cameraAt, activeStopAt, CAMERA_POINTS } from "@/lib/journey";
+import {
+  toVh,
+  toneAt,
+  cameraAt,
+  activeStopAt,
+  focusAt,
+  CAMERA_POINTS,
+  TOTAL_SCROLL_VH,
+  ROSTERS,
+  programHoldVh,
+} from "@/lib/journey";
 import HeroParticles from "./HeroParticles";
 import SquadClusters from "./SquadClusters";
+import ProgramField from "./ProgramField";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const BLACK = new THREE.Color(colors.black);
@@ -112,7 +123,17 @@ function DebugStats({ tier, count }) {
   const { gl, scene, camera } = useThree();
   useEffect(() => {
     window.__astraRender = { gl, scene, camera };
-    return () => delete window.__astraRender;
+    // Scroll map for tests: hold position (shared progress 0..1) of every program.
+    window.__astraJourney = {
+      totalVh: TOTAL_SCROLL_VH,
+      holds: ROSTERS.map((r, i) =>
+        r.map((p, j) => ({ id: p.id, squad: p.squad, progress: programHoldVh(i, j) / TOTAL_SCROLL_VH }))
+      ),
+    };
+    return () => {
+      delete window.__astraRender;
+      delete window.__astraJourney;
+    };
   }, [gl, scene, camera]);
   useFrame(({ gl }) => {
     const s = toVh(scrollState.smooth);
@@ -125,6 +146,7 @@ function DebugStats({ tier, count }) {
       progress: scrollState.smooth,
       vh: s,
       stop: activeStopAt(s),
+      focus: focusAt(s),
       intro: heroStatus.intro,
       alpha: heroStatus.alpha,
       introSkipped: heroStatus.skipped,
@@ -161,7 +183,8 @@ export default function Scene({ tier = "high", debug = false }) {
         <WorldRig />
         <Backdrop />
         <HeroParticles count={cfg.particles} />
-        <SquadClusters ambient={cfg.ambient} dustPerStar={cfg.dustPerStar} haze={cfg.haze} />
+        <SquadClusters ambient={cfg.ambient} haze={cfg.haze} />
+        <ProgramField count={cfg.particles} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>

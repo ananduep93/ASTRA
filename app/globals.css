@@ -105,26 +105,6 @@ html[data-world="live"] .hero-title-wrap {
   border: 0;
 }
 
-/* ...and shown as plain text when there is no canvas. */
-html[data-world="static"] .hero-h1 {
-  position: static;
-  width: auto;
-  height: auto;
-  margin: 0;
-  overflow: visible;
-  clip-path: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-h1 {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip-path: none;
-  }
-}
-
 /* Same layout as the visible title, never painted: the particle sampler reads it. */
 .hero-ghost {
   position: absolute;
@@ -174,16 +154,14 @@ html[data-world="static"] .hero-h1 {
 }
 
 /* Each squad stop: a fixed overlay (not pinned), hidden until the camera has
-   arrived. Its text colour comes from its background tone. */
+   arrived. Its text colour comes from its background tone. Layout (phones first):
+   squad name at the top, the shape area under it, the focused program below.
+   Every area is placed absolutely, so the shape area is in the same spot for
+   every program and squad (the dots are sampled into it). */
 .squad-stop {
   position: fixed;
   inset: 0;
   z-index: 2;
-  display: grid;
-  align-content: center;
-  gap: var(--astra-space-md);
-  /* right padding leaves room for the progress marks */
-  padding: var(--astra-space-lg) calc(var(--astra-space-gutter) + 2rem) var(--astra-space-lg) var(--astra-space-gutter);
   color: var(--stop-fg);
   visibility: hidden;
   pointer-events: none;
@@ -195,76 +173,182 @@ html[data-world="static"] .hero-h1 {
   --stop-fg: var(--astra-white);
 }
 
+.squad-head {
+  position: absolute;
+  top: var(--astra-space-lg);
+  right: calc(var(--astra-space-gutter) + 2rem); /* room for the progress marks */
+  left: var(--astra-space-gutter);
+}
 .squad-name {
   font-family: var(--astra-font-display);
-  font-size: var(--astra-text-h1);
+  font-size: var(--astra-text-h3);
   font-weight: 800;
   line-height: var(--astra-lh-display);
   text-transform: uppercase;
 }
-
 .squad-brief {
-  margin-top: var(--astra-space-2xs);
-  font-size: var(--astra-text-lead);
+  margin-top: var(--astra-space-3xs);
+  font-size: var(--astra-text-body);
 }
 
-.roster {
+/* The shape area: the dots draw the focused program here; tapping it opens Details. */
+.program-shape {
+  position: absolute;
+  top: 19svh;
+  right: calc(var(--astra-space-gutter) + 2rem);
+  left: var(--astra-space-gutter);
+  height: 35svh;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.program-shape:focus {
+  outline: none; /* never keyboard-focusable; focus goes to the Details button instead */
+}
+
+.program-copy {
+  position: absolute;
+  top: 56svh;
+  right: calc(var(--astra-space-gutter) + 2rem);
+  bottom: var(--astra-space-md);
+  left: var(--astra-space-gutter);
+}
+
+/* One card per program, stacked in the same spot; only the focused one shows. */
+.program-focus {
+  position: absolute;
+  inset: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--astra-space-3xs);
-  list-style: none;
+  align-items: flex-start;
+  gap: var(--astra-space-2xs);
+  visibility: hidden;
+  pointer-events: none;
 }
-
-.roster-item {
-  display: flex;
+.program-count {
+  font-size: max(0.875rem, var(--astra-text-small)); /* never under 14px */
+  font-variant-numeric: tabular-nums;
+}
+.program-name {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h2);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+}
+.program-squad {
+  font-size: var(--astra-text-body);
+}
+.program-details {
   min-height: 44px; /* comfortable tap target */
-  align-items: center;
-  gap: 0.75rem;
-  margin-inline: -0.5rem;
-  padding: 0.375rem 0.5rem;
-  border: 0;
+  margin-top: var(--astra-space-2xs);
+  padding: 0.55rem 1.1rem;
+  border: 1px solid currentColor;
   border-radius: 2px;
   background: none;
   color: inherit;
   font: inherit;
-  font-size: var(--astra-text-lead);
-  line-height: 1.2;
-  text-align: left;
   cursor: pointer;
 }
-.roster-item:focus-visible {
+.program-details:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 
-/* The anchor for the 3D program star. Drawn by the canvas when live. */
-.roster-dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
+/* Short squad rail: one faint point per program, the focused one solid. Top right of the copy. */
+.program-rail {
+  position: absolute;
+  top: 0.35rem;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+}
+.program-rail li {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+  transform: scale(0.8);
+  transition:
+    transform var(--astra-dur-fast) var(--astra-ease-out),
+    opacity var(--astra-dur-fast) var(--astra-ease-out);
+}
+.program-rail li[data-active] {
+  opacity: 1;
+  transform: scale(1.4);
 }
 
-/* Wide screens: name on the left, roster spread like a constellation on the right. */
+/* Wide screens: squad name and the focused program on the left, the shape on the right. */
 @media (min-width: 900px) {
-  .squad-stop {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-    align-items: center;
-    column-gap: var(--astra-space-xl);
+  .squad-head {
+    top: 12vh;
+    right: auto;
+    width: 40%;
   }
-  .roster {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: center;
-    gap: var(--astra-space-md) var(--astra-space-lg);
+  .program-shape {
+    top: 12vh;
+    right: calc(var(--astra-space-gutter) + 3rem);
+    bottom: 12vh;
+    left: 48%;
+    height: auto;
   }
-  .roster li:nth-child(3n + 2) {
-    margin-top: var(--astra-space-lg);
+  .program-copy {
+    top: 30vh;
+    right: auto;
+    bottom: 12vh;
+    width: 40%;
   }
-  .roster li:nth-child(3n) {
-    margin-top: var(--astra-space-sm);
+  .program-name {
+    font-size: min(var(--astra-text-h1), 7.5vw);
   }
 }
+
+/* Keyboard / screen-reader list of every program. Invisible until a button
+   is focused; then only that button shows, as a chip in the corner. */
+.program-index {
+  position: fixed;
+  bottom: var(--astra-space-md);
+  left: var(--astra-space-gutter);
+  z-index: 4;
+}
+.program-index ul {
+  list-style: none;
+}
+.program-index__item {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.program-index__item:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.6rem 1rem;
+  overflow: visible;
+  clip-path: none;
+  border: 1px solid var(--astra-black);
+  border-radius: 2px;
+  background: var(--astra-white);
+  color: var(--astra-black);
+  font: inherit;
+  outline: 2px solid var(--astra-red);
+  outline-offset: 2px;
+}
+
 
 /* Which squad you are at: five small marks on the right edge. */
 .progress-marks {
@@ -397,47 +481,6 @@ html[data-world="static"] .hero-h1 {
 }
 html:has(.program-dialog[open]) {
   overflow: hidden;
-}
-
-/* ------------------------------------------------------------ static mode */
-/* Low tier, reduced motion, no WebGL or no JavaScript: plain stacked sections,
-   black and white, everything visible. (Same rules three times: attribute set
-   by JS, the reduced-motion media query before JS runs, and <noscript>.) */
-html[data-world="static"] .journey-spacer {
-  height: 0;
-}
-html[data-world="static"] .squad-stop {
-  position: relative;
-  inset: auto;
-  min-height: 100svh;
-  --stop-fg: var(--astra-white);
-  visibility: visible;
-  pointer-events: auto;
-}
-html[data-world="static"] .roster-dot {
-  background: var(--astra-red);
-}
-html[data-world="static"] .progress-marks {
-  display: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .journey-spacer {
-    height: 0;
-  }
-  .squad-stop {
-    position: relative;
-    inset: auto;
-    min-height: 100svh;
-    --stop-fg: var(--astra-white);
-    visibility: visible;
-    pointer-events: auto;
-  }
-  .roster-dot {
-    background: var(--astra-red);
-  }
-  .progress-marks {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

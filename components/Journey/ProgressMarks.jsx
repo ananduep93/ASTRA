@@ -9,7 +9,8 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { SQUADS } from "@/data/programs";
 import { scrollState } from "@/lib/scrollStore";
-import { toVh, activeStopAt, whitenessAt, phaseVh } from "@/lib/journey";
+import { toVh, activeStopAt, whitenessAt, stopStartVh } from "@/lib/journey";
+import { journey } from "@/lib/motion";
 
 export default function ProgressMarks() {
   const list = useRef(null);
@@ -17,7 +18,9 @@ export default function ProgressMarks() {
   useEffect(() => {
     const el = list.current;
     const marks = [...el.querySelectorAll("li")];
-    const [a, b] = phaseVh(0, "reveal");
+    // Fade in with Arts' name.
+    const a = stopStartVh(0) + journey.intro.head[0] * journey.introVh;
+    const b = stopStartVh(0) + journey.intro.head[1] * journey.introVh;
     let lastActive = -2;
     let lastTone = "";
     const tick = () => {
