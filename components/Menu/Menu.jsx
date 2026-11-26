@@ -23,6 +23,7 @@ import { menu as copy } from "@/data/story";
 import { brand } from "@/lib/theme";
 import { ease, menuMotion as M, tripDuration, prefersReducedMotion } from "@/lib/motion";
 import { scrollState, getLenis, startTrip } from "@/lib/scrollStore";
+import { storyStatus } from "@/lib/storyStatus";
 import {
   toVh,
   activeStopAt,
@@ -87,6 +88,19 @@ function travelTo(item) {
   lenis.scrollTo(y, { duration, easing, force: true });
 }
 
+/**
+ * Home: no flight back through the whole story. Behind the (black) menu the
+ * page and the scene jump to the top at once, then the stars form ASTRA 2027
+ * again (lib/storyStatus replayHero) while the menu fades away.
+ */
+function jumpHome() {
+  const lenis = getLenis();
+  if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+  else window.scrollTo(0, 0);
+  startTrip(0, 0.01, (t) => t); // the scene goes there on the next frame
+  storyStatus.replayHero = true;
+}
+
 export default function Menu() {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("home");
@@ -139,6 +153,9 @@ export default function Menu() {
         tl.fromTo(el, { opacity: 0, clipPath: "none" }, { opacity: 1, duration: M.open, ease: ease.out });
       } else {
         tl.fromTo(el, { opacity: 1, clipPath: circle(0) }, { clipPath: circle(radius), duration: M.open, ease: ease.inOut });
+        // Fully open: drop the circle, so a screen that grows later (phone address bar
+        // hiding) can never show a corner of the page behind.
+        tl.set(el, { clipPath: "none" }, M.open);
         tl.fromTo(
           items,
           { opacity: 0, yPercent: 60 },
@@ -150,17 +167,29 @@ export default function Menu() {
       tl.call(() => (el.querySelector('.menu-item[aria-current="true"]') ?? items[0])?.focus(), [], 0.05);
       anim.current = tl;
     } else if (el.style.visibility === "visible") {
+      const trip = pendingTrip.current;
+      pendingTrip.current = null;
+      const live = document.documentElement.dataset.world === "live";
+      const home = trip?.id === "home" && live && !reduced;
       const tl = gsap.timeline({
         onComplete: () => {
           el.style.visibility = "hidden";
+          if (home) return;
           lock(false);
-          const trip = pendingTrip.current;
-          pendingTrip.current = null;
           if (trip) travelTo(trip);
         },
       });
-      if (reduced) tl.to(el, { opacity: 0, duration: M.close, ease: ease.out });
-      else tl.to(el, { clipPath: circle(0), duration: M.close, ease: ease.inOut });
+      if (home) {
+        // Clean Home: items out, jump behind the black menu, then fade it away as the stars form.
+        tl.to(items, { opacity: 0, duration: M.close, ease: ease.out });
+        tl.call(() => {
+          lock(false);
+          jumpHome();
+        });
+        tl.to(el, { opacity: 0, duration: M.homeFade, ease: ease.out }, "+=0.12");
+      } else if (reduced) tl.to(el, { opacity: 0, duration: M.close, ease: ease.out });
+      // The circle is rebuilt from the screen size NOW (it may have changed since opening).
+      else tl.fromTo(el, { clipPath: circle(radius) }, { clipPath: circle(0), duration: M.close, ease: ease.inOut });
       btn.focus({ preventScroll: true }); // focus goes back to the button
       anim.current = tl;
     }

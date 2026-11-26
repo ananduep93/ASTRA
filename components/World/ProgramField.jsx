@@ -198,7 +198,7 @@ const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uAlpha;
   uniform float uScale, uMaxPx, uSize, uStagger;
-  uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun
+  uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun, 5 neutral (cloud moves)
   uniform vec4 uSigParams;
   uniform float uDensity;   // share of dots shown (per squad)
   uniform vec2 uSizeRange;  // dot size range as multiples of uSize (per squad)
@@ -250,6 +250,13 @@ const vertexShader = /* glsl */ `
       p.xy += dir * P.x * bump * (0.4 + aSeed);
       p.y -= P.y * bump * st;
       p.x += sin(st * 12.0 + aSeed * 20.0) * 0.06 * bump;
+    } else if (uSig == 5) {
+      // Neutral: every move to or from the loose cloud (arrivals, departures around the
+      // transitions). A smooth eased glide with a gentle bow: never blocky or snapped.
+      float bump = sin(3.14159 * st);
+      p = mix(aFrom, aTo, easeInOut(st));
+      vec2 bow = normalize(vec2(hash(aSeed * 2.3) - 0.5, hash(aSeed * 4.9) - 0.5) + 1e-4);
+      p.xy += bow * 0.18 * bump;
     } else {
       // Arts: curling, ink-like flow.
       float bump = sin(3.14159 * st);
@@ -455,9 +462,11 @@ export default function ProgramField({ count }) {
       u.uSquare.value = LOOK[i].square;
       u.uSize.value = F.size; // back from the finale's settings
       u.uStagger.value = F.stagger;
-      u.uSig.value = Math.min(i, STOP_COUNT - 1);
       u.uSigParams.value.fromArray(signatureParams(SQUADS[i], sh.frame));
     }
+    // The squad's signature only between shapes (emblem -> program, program -> program);
+    // anything to or from the loose cloud uses the neutral glide (5).
+    u.uSig.value = m.from === -1 || m.to === -1 ? 5 : Math.min(i, STOP_COUNT - 1);
     if (c.stop !== i || c.from !== fromKey || c.to !== toKey) {
       // New pair of shapes: copy their points into the two GPU buffers.
       const geo = pts.geometry;

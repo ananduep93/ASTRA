@@ -8,8 +8,10 @@
  * arrival; then ONE program is in focus at a time as you scroll:
  * its dots form its shape (ProgramField, behind), its name rises line by line
  * (SplitText lines inside a mask), with an overall counter, a short squad rail
- * and a Details button. Every reveal is a paused GSAP timeline whose progress
- * is set from the shared scroll value, so scrolling back plays it in reverse.
+ * and a Details button. Every reveal is a paused GSAP timeline; the shared
+ * scroll value decides whether it is shown or hidden and the timeline plays
+ * that out (lib/reveal.js), so no text ever rests half-clipped. Scrolling
+ * back plays it in reverse.
  * Transform and opacity only.
  *
  * Static (low tier, reduced motion, no WebGL): stacked cards per program.
@@ -33,6 +35,7 @@ import {
   arrivalNameAt,
 } from "@/lib/journey";
 import { openProgram } from "@/lib/programDialog";
+import { stateReveal, isJump } from "@/lib/reveal";
 import { dossiers, squadStatus, briefing, missionFileLabel } from "@/data/story";
 import Emblem from "@/components/Story/Emblem";
 
@@ -134,6 +137,10 @@ export default function SquadJourney() {
       const heads = [];
       const arrivals = []; // arrivals[i] = latest huge-name timeline (replaced on re-split)
       const programTls = []; // programTls[i][j] = latest timeline (replaced on re-split)
+      // State-based reveals (lib/reveal.js): scroll decides shown / hidden, the timeline plays it out.
+      const headR = stops.map((_, i) => stateReveal(() => heads[i]));
+      const arrR = stops.map((_, i) => stateReveal(() => arrivals[i]));
+      const progR = stops.map((_, i) => ROSTERS[i].map((__, j) => stateReveal(() => programTls[i]?.[j])));
 
       stops.forEach((stop, i) => {
         // Dossier: status line first, then the codename's characters rise out of a mask, then the mission.
@@ -156,7 +163,7 @@ export default function SquadJourney() {
             onSplit(self) {
               const tl = gsap.timeline({ paused: true });
               tl.from(self.lines, { yPercent: 105, duration: duration.slow, ease: ease.expo, stagger: stagger.base });
-              tl.progress(arrivals[i]?.progress() ?? 0);
+              tl.progress(arrR[i].target); // a rebuilt timeline starts in the current state
               arrivals[i] = tl;
               return tl;
             },
@@ -174,7 +181,7 @@ export default function SquadJourney() {
               const tl = gsap.timeline({ paused: true, defaults: { ease: ease.out } });
               tl.from(self.lines, { yPercent: 110, duration: duration.base, stagger: stagger.base });
               tl.from(extras, { opacity: 0, yPercent: 40, duration: duration.base, stagger: stagger.tight }, duration.fast);
-              tl.progress(programTls[i][j]?.progress() ?? 0);
+              tl.progress(progR[i][j].target);
               programTls[i][j] = tl;
               return tl;
             },
@@ -190,25 +197,33 @@ export default function SquadJourney() {
         return true;
       };
 
+      let prevS = 0;
       const tick = () => {
         const live = !isStatic();
         const s = toVh(scrollState.smooth);
+        const jumped = isJump(prevS, s);
+        prevS = s;
         const focus = live ? focusAt(s) : null;
+        // Live: ask for the state, the timeline plays it out (or snaps after a jump). Static: final state.
+        const sync = (r, on, key) => {
+          if (live) r.set(on, jumped);
+          else if (changed(key, on)) r.snap(on);
+        };
 
         stops.forEach((stop, i) => {
-          const hv = live ? headTextAt(s, i) : 1;
-          if (changed(`h${i}`, hv)) heads[i].progress(hv);
-          const av = live ? arrivalNameAt(s, i) : 0;
-          if (changed(`a${i}`, av)) arrivals[i]?.progress(av);
-          let any = hv > 0.001 || av > 0.001;
+          // Shown once past the middle of its reveal range, hidden past the middle of its exit range.
+          sync(headR[i], live ? headTextAt(s, i) > 0.5 : true, `h${i}`);
+          sync(arrR[i], live ? arrivalNameAt(s, i) > 0.5 : false, `a${i}`);
+          let any = headR[i].visible() || arrR[i].visible();
 
           stop.querySelectorAll(".program-focus").forEach((card, j) => {
-            const v = live ? programTextAt(s, i, j) : 1;
-            if (v > 0.001) any = true;
-            if (!changed(`p${i}.${j}`, v)) return;
-            programTls[i][j]?.progress(v);
-            card.style.visibility = v > 0.001 ? "visible" : "hidden"; // hidden = not tabbable
-            card.style.pointerEvents = v > 0.9 ? "auto" : "none";
+            const r = progR[i][j];
+            sync(r, live ? programTextAt(s, i, j) > 0.5 : true, `p${i}.${j}`);
+            const vis = r.visible();
+            if (vis) any = true;
+            if (changed(`pv${i}.${j}`, vis)) card.style.visibility = vis ? "visible" : "hidden"; // hidden = not tabbable
+            const ready = live ? r.settled() : true;
+            if (changed(`pe${i}.${j}`, ready)) card.style.pointerEvents = ready ? "auto" : "none";
           });
 
           if (changed(`v${i}`, any)) stop.style.visibility = any ? "visible" : "hidden";
@@ -221,7 +236,7 @@ export default function SquadJourney() {
             shape.dataset.programIndex = String(jFocus);
             stop.querySelectorAll(".program-rail li").forEach((dot, k) => dot.toggleAttribute("data-active", k === jFocus));
           }
-          const tapReady = jFocus >= 0 && (live ? programTextAt(s, i, jFocus) : 0) > 0.9;
+          const tapReady = live && jFocus >= 0 && progR[i][jFocus].settled();
           if (changed(`t${i}`, tapReady)) stop.querySelector(".program-shape").style.pointerEvents = tapReady ? "auto" : "none";
         });
       };

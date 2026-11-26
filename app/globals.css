@@ -216,7 +216,7 @@ html[data-world="live"] .hero-title-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem; /* 14px: meaningful text */
+  font-size: 1rem; /* 16px: squad intro text */
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -232,7 +232,7 @@ html[data-world="live"] .hero-title-wrap {
 .squad-name {
   display: block;
   font-family: var(--astra-font-display);
-  font-size: var(--astra-text-h3);
+  font-size: max(1.875rem, var(--astra-text-h3)); /* the top of the hierarchy: 30px+ */
   font-weight: 800;
   line-height: var(--astra-lh-display);
   text-transform: uppercase;
@@ -240,11 +240,13 @@ html[data-world="live"] .hero-title-wrap {
 .squad-brief {
   max-width: 34rem;
   margin-top: var(--astra-space-2xs);
-  font-size: max(0.875rem, var(--astra-text-small));
-  line-height: 1.4;
+  font-size: 1.125rem; /* 18px: the mission line */
+  line-height: 1.35;
 }
 .squad-briefing {
-  white-space: nowrap;
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1rem; /* 16px, quieter than the mission */
   opacity: 0.7;
 }
 
@@ -257,7 +259,7 @@ html[data-world="live"] .hero-title-wrap {
 /* The shape area: the dots draw the focused program here; tapping it opens Details. */
 .program-shape {
   position: absolute;
-  top: max(28svh, calc(var(--hud-clear) + 8.5rem)); /* below the dossier */
+  top: max(30svh, calc(var(--hud-clear) + 11rem)); /* below the dossier */
   right: calc(var(--astra-space-gutter) + 2rem);
   left: var(--astra-space-gutter);
   bottom: 45svh;

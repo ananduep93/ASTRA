@@ -8,8 +8,8 @@
  * squad emblems in the ".finale-slot" areas, then travel into the ASTRA logo
  * in the ".finale-logo" area (both are sampled from this layout, so they fit
  * every screen). A comet streak sweeps through, then the line and the call to
- * action rise. Every reveal is a paused timeline set from scroll, so scrolling
- * back plays it in reverse. Transform and opacity only.
+ * action rise. The sweep follows scroll; the text reveals are state-based
+ * (lib/reveal.js), so they never rest half-clipped. Transform and opacity only.
  *
  * Static (low tier, reduced motion, no JS): the logo image, the line and the
  * button as a plain black section (lib/staticCss.js).
@@ -25,6 +25,7 @@ import { brand } from "@/lib/theme";
 import { ease, stagger, duration } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { toVh, finaleTextAt } from "@/lib/journey";
+import { stateReveal, isJump } from "@/lib/reveal";
 
 const isStatic = () => document.documentElement.dataset.world === "static";
 
@@ -38,6 +39,7 @@ export default function Finale() {
       const cta = el.querySelector(".finale-cta");
 
       let lineTl = null;
+      const lineR = stateReveal(() => lineTl);
       const split = SplitText.create(el.querySelector(".finale-line"), {
         type: "words,chars",
         mask: "chars",
@@ -45,20 +47,34 @@ export default function Finale() {
         onSplit(self) {
           const tl = gsap.timeline({ paused: true, defaults: { ease: ease.out } });
           tl.from(self.chars, { yPercent: 110, duration: duration.base, stagger: stagger.tight });
-          tl.progress(lineTl?.progress() ?? 0);
+          tl.progress(lineR.target);
           lineTl = tl;
           return tl;
         },
       });
       const ctaTl = gsap.timeline({ paused: true }).from(cta, { opacity: 0, yPercent: 40, duration: duration.base, ease: ease.out });
+      const ctaR = stateReveal(() => ctaTl);
 
       let last = {};
+      let snapped = false; // static mode: jumped to the final state once
+      let prevS = 0;
       const tick = () => {
         const live = !isStatic();
-        const t = live ? finaleTextAt(toVh(scrollState.smooth)) : { visible: true, line: 1, cta: 1, sweep: 0 };
+        const s = toVh(scrollState.smooth);
+        const jumped = isJump(prevS, s);
+        prevS = s;
+        const t = live ? finaleTextAt(s) : { visible: true, line: 1, cta: 1, sweep: 0 };
         if (t.visible !== last.visible) el.style.visibility = t.visible ? "visible" : "hidden";
-        if (t.line !== last.line) lineTl?.progress(t.line);
-        if (t.cta !== last.cta) ctaTl.progress(t.cta);
+        // Text: shown / hidden by state (never rests half-clipped); the sweep stays tied to scroll.
+        if (live) {
+          lineR.set(t.line > 0.5, jumped);
+          ctaR.set(t.cta > 0.5, jumped);
+        } else if (!snapped) {
+          lineR.snap(true);
+          ctaR.snap(true);
+          snapped = true;
+        }
+        if (live) snapped = false;
         if (t.sweep !== last.sweep) {
           // Streak travels along the logo's own comet angle; bright in the middle of its run.
           sweep.style.transform = `translate3d(${-60 + t.sweep * 220}%, 0, 0)`;

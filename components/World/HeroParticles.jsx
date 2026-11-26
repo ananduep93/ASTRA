@@ -273,13 +273,21 @@ export default function HeroParticles({ count }) {
       it.skip = scrollState.progress > hero.intro.skipAbove;
       if (it.skip) snapSmooth(); // show the exact state for this position, no glide
     }
+    // Menu Home: form the headline again from the stars (time-based), at full brightness.
+    if (storyStatus.replayHero && it.phase === "running") {
+      storyStatus.replayHero = false;
+      it.start = now;
+      it.skip = false;
+      it.replay = true;
+    }
     const running = it.phase === "running";
     const elapsed = running ? now - it.start : 0;
-    const timeIntro = it.skip ? 1 : Math.min(1, elapsed / hero.intro.duration);
+    const introDuration = it.replay ? hero.intro.replayDuration : hero.intro.duration;
+    const timeIntro = it.skip ? 1 : Math.min(1, elapsed / introDuration);
     // Scrolling through the hold also finishes the assemble, so it is never left half-built.
     const form = running ? Math.max(timeIntro, rangeLinear(p, tl.hold)) : 0;
 
-    u.uAlpha.value = running ? Math.min(1, elapsed / (it.skip ? hero.intro.skipFadeIn : hero.intro.fadeIn)) : 0;
+    u.uAlpha.value = !running ? 0 : it.replay ? 1 : Math.min(1, elapsed / (it.skip ? hero.intro.skipFadeIn : hero.intro.fadeIn));
     u.uTime.value = now;
     u.uForm.value = form;
     u.uShimmer.value = rangeSmooth(form, hero.intro.shimmerIn) * (1 - rangeSmooth(p, tl.shimmerOut));

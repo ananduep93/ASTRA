@@ -5,6 +5,7 @@
  * before the first squad. A fixed overlay (not pinned) in two beats, every
  * reveal a paused GSAP timeline set from the shared scene progress, so it
  * plays in reverse on scroll back. Transform, opacity and clip-path only.
+ * Beats show / hide by state (lib/reveal.js): never left half-revealed.
  *   Beat 1: label, a big kinetic headline (SplitText lines rise out of masks,
  *           alternate lines drift sideways while it holds), what ASTRA is,
  *           the college and the year.
@@ -23,10 +24,10 @@ import { briefingCopy as copy } from "@/data/story";
 import { briefing as BRF, ease, stagger, duration } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { toVh, briefingProgress } from "@/lib/journey";
+import { stateReveal, isJump } from "@/lib/reveal";
 
 const isStatic = () => document.documentElement.dataset.world === "static";
 const lin = (v, [a, b]) => Math.min(1, Math.max(0, (v - a) / (b - a)));
-const pad = (n) => String(n).padStart(2, "0");
 
 const TILES = [
   { key: "date", ...copy.facts.date },
@@ -46,6 +47,7 @@ export default function Briefing() {
       const counters = [...el.querySelectorAll("[data-count]")];
       let headTl = null;
       let lines = [];
+      const headR = stateReveal(() => headTl);
 
       const split = SplitText.create(el.querySelector(".briefing-headline"), {
         type: "lines",
@@ -60,7 +62,7 @@ export default function Briefing() {
             { opacity: 0, yPercent: 30, duration: duration.base, ease: ease.out, stagger: stagger.base },
             duration.fast
           );
-          tl.progress(headTl?.progress() ?? 0);
+          tl.progress(headR.target);
           headTl = tl;
           return tl;
         },
@@ -75,34 +77,45 @@ export default function Briefing() {
         { clipPath: "inset(0% 0% 0% 0%)", duration: duration.base, ease: ease.inOut, stagger: stagger.base },
         duration.fast
       );
+      const factsR = stateReveal(() => factsTl);
 
       const last = {};
+      let prevS = 0;
       const tick = () => {
         const live = !isStatic();
-        const f = live ? briefingProgress(toVh(scrollState.smooth)) : 1;
+        const s = toVh(scrollState.smooth);
+        const jumped = isJump(prevS, s);
+        prevS = s;
+        const f = live ? briefingProgress(s) : 1;
         const inV = live ? lin(f, BRF.intro.in) * (1 - lin(f, BRF.intro.out)) : 1;
         const factsV = live ? lin(f, BRF.facts.in) * (1 - lin(f, BRF.facts.out)) : 1;
         const count = live ? lin(f, BRF.facts.count) : 1;
-        const visible = !live || inV > 0.001 || factsV > 0.001;
+        const visible = !live || inV > 0.001 || factsV > 0.001 || headR.visible() || factsR.visible();
 
         if (visible !== last.visible) el.style.visibility = (last.visible = visible) ? "visible" : "hidden";
-        if (inV !== last.inV) {
-          headTl?.progress((last.inV = inV));
-          intro.style.visibility = inV > 0.001 ? "visible" : "hidden";
+        // Beats: shown / hidden by state (lib/reveal.js), never resting half-revealed.
+        if (live) {
+          headR.set(inV > 0.5, jumped);
+          factsR.set(factsV > 0.5, jumped);
+        } else if (!last.snapped) {
+          headR.snap(true);
+          factsR.snap(true);
+          last.snapped = true;
         }
+        const introVis = headR.visible();
+        if (introVis !== last.introVis) intro.style.visibility = (last.introVis = introVis) ? "visible" : "hidden";
+        const factsVis = factsR.visible();
+        if (factsVis !== last.factsVis) facts.style.visibility = (last.factsVis = factsVis) ? "visible" : "hidden";
         // Kinetic hold: alternate lines drift apart a little while beat 1 is on screen.
         const drift = live ? (lin(f, [BRF.intro.in[1], BRF.intro.out[1]]) - 0.5) * BRF.drift : 0;
         if (drift !== last.drift) {
           last.drift = drift;
           lines.forEach((line, i) => gsap.set(line.parentElement, { xPercent: (i % 2 ? -1 : 1) * drift }));
         }
-        if (factsV !== last.factsV) {
-          factsTl.progress((last.factsV = factsV));
-          facts.style.visibility = factsV > 0.001 ? "visible" : "hidden";
-        }
+
         if (count !== last.count) {
           last.count = count;
-          counters.forEach((c) => (c.textContent = pad(Math.round(+c.dataset.count * count))));
+          counters.forEach((c) => (c.textContent = String(Math.round(+c.dataset.count * count))));
         }
       };
       gsap.ticker.add(tick);
@@ -160,7 +173,7 @@ export default function Briefing() {
               <dt>{t.label}</dt>
               <dd>
                 {/* Counts render their final value on the server (no-JS / static); live they count up. */}
-                {t.count != null ? <span data-count={t.count}>{pad(t.count)}</span> : t.value}
+                {t.count != null ? <span data-count={t.count}>{t.count}</span> : t.value}
               </dd>
             </div>
           ))}
