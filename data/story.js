@@ -12,6 +12,30 @@ export const transmission = {
   line: "Signal detected. Five squads needed.", // EDITABLE
 };
 
+/*
+ * Briefing: right after the screen turns white, before the first squad.
+ * Date and venue stay TBA until the organisers confirm them. The program and
+ * squad counts are NOT typed here: they are counted from data/programs.js.
+ */
+export const briefingCopy = {
+  label: "Mission briefing", // EDITABLE
+  // Big kinetic headline: one array entry per line.
+  headline: ["One sky.", "Every campus.", "Five squads."], // EDITABLE
+  // What ASTRA is (2-3 lines). EDITABLE placeholder; only the college and the arts + tech fest are facts.
+  about:
+    "ASTRA is the inter-college arts and tech fest of Don Bosco College, Mampetta. " +
+    "Students from campuses across the region form squads and take on missions in arts, tech, gaming, business and fun.",
+  college: "Don Bosco College, Mampetta",
+  year: "2027",
+  factsLabel: "Mission facts", // EDITABLE
+  facts: {
+    date: { label: "Date", value: TBA },
+    venue: { label: "Venue", value: TBA },
+    programs: { label: "Programs" }, // value = number of programs in data/programs.js
+    squads: { label: "Squads" }, // value = number of squads in data/programs.js
+  },
+};
+
 /* One dossier per squad. Keys must match SQUADS in data/programs.js. */
 export const dossiers = {
   Arts: {
@@ -76,6 +100,7 @@ export const missionFileLabel = "Mission file";
 export const hudStatus = {
   searching: "Signal: searching", // before the opening line has played
   detected: "Signal: detected", // after it
+  briefing: "Mission briefing", // during the briefing
   inbound: "All squads: inbound", // finale, while the squads travel in
   online: "All squads: online", // finale, once the logo has formed
 };

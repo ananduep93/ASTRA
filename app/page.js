@@ -4,6 +4,7 @@
 // is fixed; this page provides the real text, the buttons and the scroll length.
 import HeroTitle from "@/components/Hero/HeroTitle";
 import Transmission from "@/components/Story/Transmission";
+import Briefing from "@/components/Story/Briefing";
 import SquadJourney from "@/components/Journey/SquadJourney";
 import Finale from "@/components/Story/Finale";
 import Hud from "@/components/HUD/Hud";
@@ -30,6 +31,7 @@ export default function Home() {
             "--touch-length": touchScroll.lengthMultiplier,
           }}
         />
+        <Briefing />
         <SquadJourney />
         <Finale />
         <ProgramIndex />

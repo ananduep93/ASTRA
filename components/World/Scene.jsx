@@ -16,9 +16,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
-import { colors } from "@/lib/theme";
-import { hero } from "@/lib/motion";
-import { scrollState, getLenis, tripActive } from "@/lib/scrollStore";
+import { colors, brand } from "@/lib/theme";
+import { hero, journey } from "@/lib/motion";
+import { scrollState, getLenis, tripActive, snapSmooth } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
 import {
   toVh,
@@ -33,6 +33,7 @@ import {
   finaleProgress,
   finaleSharedProgress,
   arrivalVh,
+  briefingSharedProgress,
 } from "@/lib/journey";
 import { storyStatus } from "@/lib/storyStatus";
 import HeroParticles from "./HeroParticles";
@@ -88,6 +89,8 @@ function WorldRig() {
     worldUniforms.uFromW.value = tone.fromW;
     worldUniforms.uToW.value = tone.toW;
     worldUniforms.uMix.value = tone.mix;
+    // Star-iris only once its mask has loaded (until then the plain circle is used).
+    worldUniforms.uIris.value = tone.iris && worldUniforms.uIrisTex.value ? 1 : 0;
     state.gl.getDrawingBufferSize(worldUniforms.uResolution.value);
   });
   return null;
@@ -99,9 +102,12 @@ const backdropVertex = /* glsl */ `
 const backdropFragment = /* glsl */ `
   uniform vec3 uBlack;
   uniform vec3 uWhite;
+  uniform vec3 uRed;
   ${bgMaskGLSL}
   void main() {
-    gl_FragColor = vec4(mix(uBlack, uWhite, bgWhite(gl_FragCoord.xy)), 1.0);
+    vec3 col = mix(uBlack, uWhite, bgWhite(gl_FragCoord.xy));
+    col = mix(col, uRed, irisAccent(gl_FragCoord.xy)); // star-iris edge glow + shockwave (hero only)
+    gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -113,13 +119,30 @@ function Backdrop() {
       new THREE.ShaderMaterial({
         vertexShader: backdropVertex,
         fragmentShader: backdropFragment,
-        uniforms: { ...worldUniforms, uBlack: { value: BLACK }, uWhite: { value: WHITE } },
+        uniforms: { ...worldUniforms, uBlack: { value: BLACK }, uWhite: { value: WHITE }, uRed: { value: new THREE.Color(colors.red) } },
         depthTest: false,
         depthWrite: false,
       }),
     []
   );
   useEffect(() => () => material.dispose(), [material]);
+
+  // The star-iris mask (soft logo silhouette). Shared by every shader through worldUniforms.
+  useEffect(() => {
+    let tex;
+    new THREE.TextureLoader().load(brand.iris, (t) => {
+      tex = t;
+      t.colorSpace = THREE.NoColorSpace; // a mask, not a colour
+      t.minFilter = THREE.LinearFilter;
+      t.generateMipmaps = false;
+      worldUniforms.uIrisTex.value = t;
+    });
+    return () => {
+      worldUniforms.uIrisTex.value = null;
+      tex?.dispose();
+    };
+  }, []);
+
   return (
     <mesh material={material} renderOrder={-1} frustumCulled={false}>
       <planeGeometry args={[2, 2]} />
@@ -145,6 +168,16 @@ function DebugStats({ tier, count }) {
       arrivals: ROSTERS.map((_, i) => arrivalVh(i) / TOTAL_SCROLL_VH), // each squad's arrival moment
       lenisStopped: () => getLenis()?.isStopped ?? null,
       tripActive,
+      briefingAt: briefingSharedProgress, // briefing progress f (0..1) -> shared progress
+      heroAt: (h) => (h * journey.heroVh) / TOTAL_SCROLL_VH, // hero progress (before the briefing) -> shared
+      // Tests only: scroll there AND set the scene there at once (skips the guided pace).
+      jump: (p) => {
+        const y = p * (document.documentElement.scrollHeight - window.innerHeight);
+        const lenis = getLenis();
+        if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
+        else window.scrollTo(0, y);
+        requestAnimationFrame(() => requestAnimationFrame(snapSmooth));
+      },
     };
     return () => {
       delete window.__astraRender;

@@ -23,7 +23,15 @@ import { brand } from "@/lib/theme";
 import { ease, duration, finale as FIN, pacing } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
-import { toVh, activeStopAt, whitenessAt, stopStartVh, finaleProgress, TOTAL_SCROLL_VH } from "@/lib/journey";
+import {
+  toVh,
+  activeStopAt,
+  whitenessAt,
+  stopStartVh,
+  finaleProgress,
+  briefingProgress,
+  TOTAL_SCROLL_VH,
+} from "@/lib/journey";
 
 const pad = (n, w = 2) => String(Math.floor(n)).padStart(w, "0");
 
@@ -41,6 +49,8 @@ function statusAt(s) {
   if (f >= 0) return f >= FIN.merge[1] ? hudStatus.online : hudStatus.inbound;
   const stop = activeStopAt(s);
   if (stop >= 0) return squadStatus(SQUADS[stop]);
+  const b = briefingProgress(s);
+  if (b >= 0 && b <= 1) return hudStatus.briefing;
   const t = storyStatus.transmission;
   return t === "waiting" || t === "typing" ? hudStatus.searching : hudStatus.detected;
 }

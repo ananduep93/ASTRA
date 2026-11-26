@@ -769,6 +769,179 @@ html[data-world="live"] .hero-title-wrap {
   display: none;
 }
 
+/* -------------------------------------------------------------- briefing */
+/* White world after the star-iris: black text, one red accent. Two beats in
+   the same spot, each placed below the HUD bar and left of the progress line. */
+.briefing {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  color: var(--astra-black);
+  visibility: hidden;
+  pointer-events: none;
+}
+.briefing-intro,
+.briefing-facts {
+  position: absolute;
+  top: calc(var(--hud-clear) + var(--astra-space-sm));
+  right: calc(var(--astra-space-gutter) + 2rem);
+  left: var(--astra-space-gutter);
+  visibility: hidden;
+}
+.briefing-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem; /* 14px */
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.briefing-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--astra-red); /* the one accent */
+}
+.briefing-headline {
+  margin-top: var(--astra-space-sm);
+  font-family: var(--astra-font-display);
+  font-size: min(var(--astra-text-h1), 13.5vw, 13svh);
+  font-weight: 800;
+  line-height: var(--astra-lh-display);
+  text-transform: uppercase;
+}
+.briefing-line {
+  display: block;
+}
+.briefing-about {
+  max-width: 34rem;
+  margin-top: var(--astra-space-md);
+  font-size: max(1rem, var(--astra-text-body));
+  line-height: var(--astra-lh-body);
+}
+.briefing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem var(--astra-space-sm);
+  margin-top: var(--astra-space-sm);
+  padding-top: var(--astra-space-2xs);
+  border-top: 1px solid var(--astra-black);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.briefing-year {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h3);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+/* Facts: dossier tiles (thin top rule + corner tick), not cards. */
+.briefing-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--astra-space-sm);
+  margin-top: var(--astra-space-sm);
+}
+.briefing-tile {
+  position: relative;
+  padding: var(--astra-space-2xs) 0 0 0.6rem;
+  border-top: 1px solid var(--astra-black);
+}
+.briefing-tile::before {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--astra-black);
+  content: "";
+}
+.briefing-tile dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.briefing-tile dd {
+  font-family: var(--astra-font-display);
+  font-size: min(var(--astra-text-h2), 12vw);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  line-height: 1;
+}
+/* PHOTO SLOT: reserved frame for future student hero photos (bracketed, empty for now). */
+.briefing-photo {
+  position: relative;
+  width: 100%;
+  max-height: 26svh;
+  margin-top: var(--astra-space-md);
+  aspect-ratio: 16 / 10;
+  background:
+    linear-gradient(var(--astra-black), var(--astra-black)) top left / 16px 1px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) top left / 1px 16px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) top right / 16px 1px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) top right / 1px 16px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) bottom left / 16px 1px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) bottom left / 1px 16px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) bottom right / 16px 1px no-repeat,
+    linear-gradient(var(--astra-black), var(--astra-black)) bottom right / 1px 16px no-repeat;
+}
+.briefing-photo-label {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0.75rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+  text-transform: uppercase;
+}
+/* Static mode with JS: a simple cross-fade in when it scrolls into view. */
+:root[data-world="static"] .briefing {
+  transition: opacity var(--astra-dur-slow) var(--astra-ease-out);
+}
+:root[data-world="static"] .briefing:not(.is-in) {
+  opacity: 0;
+}
+
+/* Wide screens: headline left, about + college right; tiles in a row with the photo slot. */
+@media (min-width: 900px) {
+  .briefing-intro,
+  .briefing-facts {
+    top: max(14vh, calc(var(--hud-clear) + var(--astra-space-sm)));
+    right: calc(var(--astra-space-gutter) + 3rem);
+  }
+  .briefing-intro {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    column-gap: var(--astra-space-lg);
+    align-items: end;
+  }
+  .briefing-intro .briefing-label {
+    grid-column: 1 / -1;
+  }
+  .briefing-headline {
+    grid-row: 2 / span 2;
+    font-size: min(var(--astra-text-h1), 8.5vw, 17vh);
+  }
+  .briefing-facts {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    column-gap: var(--astra-space-lg);
+  }
+  .briefing-facts .briefing-label {
+    grid-column: 1 / -1;
+  }
+  .briefing-photo {
+    max-height: 46vh;
+    margin-top: var(--astra-space-sm);
+  }
+}
+
 /* ---------------------------------------------------------------- finale */
 .finale {
   position: fixed;
