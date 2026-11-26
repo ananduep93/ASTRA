@@ -36,6 +36,33 @@ export const dossiers = {
   },
 };
 
+/**
+ * Each squad's scene identity (what the stop LOOKS like). The numbers that
+ * tune it (camera angle, dot density, sizes, motion speeds) live in
+ * lib/motion.js under `identity`.
+ *   tone     background: "black" | "nearBlack" | "white" | "offWhite" (lib/theme.js).
+ *            Neighbours alternate light/dark so every move between squads inverts.
+ *   ambient  the motion around the shapes, visible from the first second:
+ *            "ribbons" | "grid" | "glitch" | "bars" | "confetti"
+ *   dots     "round" or "square" (pixel-like) dots for this squad
+ */
+export const identities = {
+  Arts: { tone: "offWhite", ambient: "ribbons", dots: "round" },
+  Tech: { tone: "black", ambient: "grid", dots: "round" },
+  Gaming: { tone: "white", ambient: "glitch", dots: "square" },
+  Business: { tone: "nearBlack", ambient: "bars", dots: "round" },
+  Fun: { tone: "offWhite", ambient: "confetti", dots: "round" },
+};
+
+/* Menu labels. Squad items use the squad names from data/programs.js. */
+export const menu = {
+  open: "Open menu",
+  close: "Close menu",
+  title: "Navigate the story",
+  home: "Home",
+  finale: "Finale / Register",
+};
+
 /** Status line shown on each dossier and in the HUD, e.g. "SQUAD ARTS: ONLINE". */
 export const squadStatus = (squad) => `Squad ${squad}: online`;
 

@@ -19,7 +19,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
 import { colors, brand } from "@/lib/theme";
-import { hero, journey, finale as FIN } from "@/lib/motion";
+import { hero, journey, finale as FIN, identity as ID } from "@/lib/motion";
+import { identities } from "@/data/story";
 import { scrollState } from "@/lib/scrollStore";
 import { SQUADS } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
@@ -34,6 +35,7 @@ import {
   morphAt,
   screenToLocal,
   finaleAt,
+  STOP_VIEWS,
 } from "@/lib/journey";
 import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
 
@@ -41,6 +43,27 @@ const F = journey.field;
 const HALF_FOV = THREE.MathUtils.degToRad(hero.camera.fov / 2);
 const CLOUD = "__cloud";
 const FINALE = STOP_COUNT; // "stop" index used for the finale
+const emblemKey = (squad) => `__emblem_${squad}`;
+
+/**
+ * Orientation of each destination's hold camera (squads + finale). The shape
+ * plane copies it, so it always faces the camera square-on: shapes land exactly
+ * in the DOM shape area whatever the squad's camera angle and tilt.
+ */
+const FACING = STOP_VIEWS.map(({ eye, target, roll }) => {
+  const cam = new THREE.PerspectiveCamera();
+  cam.position.set(...eye);
+  cam.lookAt(...target);
+  cam.rotateZ(roll);
+  return cam.quaternion.clone();
+});
+
+/** Per-squad dot look (lib/motion.js identity + data/story.js identities). */
+const LOOK = SQUADS.map((sq) => ({
+  density: ID[sq].density,
+  size: ID[sq].size,
+  square: identities[sq].dots === "square" ? 1 : 0,
+}));
 const finaleKey = (k) => `__finale_${k}`; // "cloud" | "emblems" | "logo"
 
 /** The logo image whose transparency the finale samples (loaded once). */
@@ -131,7 +154,20 @@ function sampleAllShapes(count) {
   const [cx, cy] = screenToLocal(r.left + r.width / 2, r.top + r.height / 2, hero.camera.fov);
   const halfW = (r.width / 2) * wpp;
   const bottom = screenToLocal(0, r.bottom - r.height * F.framePadding, hero.camera.fov)[1];
-  byKey[CLOUD] = cloudPoints(count, [cx, cy]);
+
+  // Arrival: each squad's emblem, big, in the ".squad-arrival-emblem" box (same spot for every squad).
+  const emblemEl = document.querySelector(".squad-stop .squad-arrival-emblem");
+  const er = emblemEl?.getBoundingClientRect();
+  SQUADS.forEach((squad, k) => {
+    const out = new Float32Array(count * 3);
+    const sample = er?.width ? sampleShape(EMBLEMS[squad], er, 0.02) : null;
+    if (sample) fillTargets(out, sample, wpp, seededRandom(90 + k), () => false);
+    for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6;
+    byKey[emblemKey(squad)] = out;
+  });
+  // The arrival cloud gathers around the emblem's spot.
+  const ec = er?.width ? screenToLocal(er.left + er.width / 2, er.top + er.height / 2, hero.camera.fov) : [cx, cy];
+  byKey[CLOUD] = cloudPoints(count, ec);
   return { byKey, frame: { cx, cy, halfW, bottom } };
 }
 
@@ -164,6 +200,8 @@ const vertexShader = /* glsl */ `
   uniform float uScale, uMaxPx, uSize, uStagger;
   uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun
   uniform vec4 uSigParams;
+  uniform float uDensity;   // share of dots shown (per squad)
+  uniform vec2 uSizeRange;  // dot size range as multiples of uSize (per squad)
 
   varying float vAlpha;
   varying float vRed;
@@ -225,9 +263,11 @@ const vertexShader = /* glsl */ `
 
     vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
     float dist = -mvPosition.z;
-    gl_PointSize = clamp(uSize * (1.0 + boost * 0.8) * uScale / max(dist, 0.001), 1.0, uMaxPx);
+    float keep = step(aSeed, uDensity); // this squad's density
+    float size = uSize * mix(uSizeRange.x, uSizeRange.y, fract(aSeed * 7.31));
+    gl_PointSize = keep * clamp(size * (1.0 + boost * 0.8) * uScale / max(dist, 0.001), 1.0, uMaxPx);
     gl_Position = projectionMatrix * mvPosition;
-    vAlpha = uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost);
+    vAlpha = keep * uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost);
     vRed = aRed;
     vBoost = boost;
   }
@@ -240,11 +280,13 @@ const fragmentShader = /* glsl */ `
   varying float vAlpha;
   varying float vRed;
   varying float vBoost;
+  uniform float uSquare;    // 1 = square, pixel-like dots (per squad)
   ${bgMaskGLSL}
 
   void main() {
-    float d = length(gl_PointCoord - 0.5);
-    float a = smoothstep(0.5, 0.12, d) * vAlpha;
+    vec2 c = abs(gl_PointCoord - 0.5);
+    float d = mix(length(c), max(c.x, c.y), uSquare);
+    float a = mix(smoothstep(0.5, 0.12, d), step(d, 0.42), uSquare) * vAlpha;
     if (a < 0.01) discard;
     vec3 col = mix(uLight, uDark, bgWhite(gl_FragCoord.xy)); // opposite of the background
     col = mix(col, uRed, vRed);
@@ -287,6 +329,9 @@ export default function ProgramField({ count }) {
           uStagger: { value: F.stagger },
           uSig: { value: 0 },
           uSigParams: { value: new THREE.Vector4() },
+          uDensity: { value: 1 },
+          uSizeRange: { value: new THREE.Vector2(1, 1) },
+          uSquare: { value: 0 },
           uLight: { value: new THREE.Color(colors.white) },
           uDark: { value: new THREE.Color(colors.black) },
           uRed: { value: new THREE.Color(colors.red) },
@@ -364,6 +409,10 @@ export default function ProgramField({ count }) {
       const c = current.current;
       if (c.stop !== FINALE) {
         pts.position.set(...FIN.center);
+        pts.quaternion.copy(FACING[FINALE]);
+        u.uDensity.value = 1;
+        u.uSizeRange.value.set(1, 1);
+        u.uSquare.value = 0;
         u.uSig.value = 0; // the curling path (Arts signature maths), with the finale's own settings
         u.uSize.value = FIN.size;
         u.uStagger.value = FIN.stagger;
@@ -393,13 +442,17 @@ export default function ProgramField({ count }) {
     if (!pts.visible) return;
 
     const m = morphAt(s, i);
-    const keyOf = (j) => (j < 0 ? CLOUD : shapeFor(ROSTERS[i][j]));
+    const keyOf = (j) => (j === -1 ? CLOUD : j === -2 ? emblemKey(SQUADS[i]) : shapeFor(ROSTERS[i][j]));
     const fromKey = keyOf(m.from);
     const toKey = keyOf(m.to);
     const c = current.current;
     if (c.stop !== i) {
       const [x, y, z] = journey.centers[i];
       pts.position.set(x, y, z);
+      pts.quaternion.copy(FACING[i]); // face this squad's camera square-on
+      u.uDensity.value = LOOK[i].density;
+      u.uSizeRange.value.set(LOOK[i].size[0], LOOK[i].size[1]);
+      u.uSquare.value = LOOK[i].square;
       u.uSize.value = F.size; // back from the finale's settings
       u.uStagger.value = F.stagger;
       u.uSig.value = Math.min(i, STOP_COUNT - 1);

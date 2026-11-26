@@ -22,7 +22,16 @@ import { useGSAP } from "@gsap/react";
 import { SQUADS } from "@/data/programs";
 import { journey, ease, stagger, duration } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
-import { ROSTERS, PROGRAM_TOTAL, programNumber, toVh, headTextAt, programTextAt, focusAt } from "@/lib/journey";
+import {
+  ROSTERS,
+  PROGRAM_TOTAL,
+  programNumber,
+  toVh,
+  headTextAt,
+  programTextAt,
+  focusAt,
+  arrivalNameAt,
+} from "@/lib/journey";
 import { openProgram } from "@/lib/programDialog";
 import { dossiers, squadStatus, briefing, missionFileLabel } from "@/data/story";
 import Emblem from "@/components/Story/Emblem";
@@ -32,10 +41,18 @@ const pad = (n) => String(n).padStart(2, "0");
 
 function SquadStop({ squad, index }) {
   const roster = ROSTERS[index];
-  const tone = journey.tones[index] === 1 ? "light" : "dark"; // light = white world, dark text
+  const tone = journey.tones[index] > 0.5 ? "light" : "dark"; // light = white / off-white world, dark text
   const headingId = `squad-${squad.toLowerCase()}`;
   return (
     <section className="squad-stop" data-stop={index} data-tone={tone} aria-labelledby={headingId}>
+      {/* Arrival: the dots form the emblem in this box (sampled), the name rises huge under it.
+          Decorative: the dossier heading below carries the same words for screen readers. */}
+      <div className="squad-arrival" aria-hidden="true">
+        <div className="squad-arrival-emblem" />
+        <p className="squad-arrival-name" style={{ "--len": squad.length }}>
+          {squad}
+        </p>
+      </div>
       <header className="squad-head">
         <p className="squad-status">
           <Emblem squad={squad} className="squad-emblem" />
@@ -115,6 +132,7 @@ export default function SquadJourney() {
       const stops = gsap.utils.toArray(".squad-stop", root.current);
       const splits = [];
       const heads = [];
+      const arrivals = []; // arrivals[i] = latest huge-name timeline (replaced on re-split)
       const programTls = []; // programTls[i][j] = latest timeline (replaced on re-split)
 
       stops.forEach((stop, i) => {
@@ -127,6 +145,23 @@ export default function SquadJourney() {
         head.from(name.chars, { yPercent: 110, duration: duration.base, stagger: stagger.tight }, duration.fast * 0.5);
         head.from(stop.querySelector(".squad-brief"), { opacity: 0, yPercent: 30, duration: duration.base }, duration.fast * 1.5);
         heads.push(head);
+
+        // Huge arrival name: lines rise out of a mask (re-split on resize, like program names).
+        splits.push(
+          SplitText.create(stop.querySelector(".squad-arrival-name"), {
+            type: "lines",
+            mask: "lines",
+            autoSplit: true,
+            aria: "none",
+            onSplit(self) {
+              const tl = gsap.timeline({ paused: true });
+              tl.from(self.lines, { yPercent: 105, duration: duration.slow, ease: ease.expo, stagger: stagger.base });
+              tl.progress(arrivals[i]?.progress() ?? 0);
+              arrivals[i] = tl;
+              return tl;
+            },
+          })
+        );
 
         programTls[i] = [];
         stop.querySelectorAll(".program-focus").forEach((card, j) => {
@@ -163,7 +198,9 @@ export default function SquadJourney() {
         stops.forEach((stop, i) => {
           const hv = live ? headTextAt(s, i) : 1;
           if (changed(`h${i}`, hv)) heads[i].progress(hv);
-          let any = hv > 0.001;
+          const av = live ? arrivalNameAt(s, i) : 0;
+          if (changed(`a${i}`, av)) arrivals[i]?.progress(av);
+          let any = hv > 0.001 || av > 0.001;
 
           stop.querySelectorAll(".program-focus").forEach((card, j) => {
             const v = live ? programTextAt(s, i, j) : 1;

@@ -15,7 +15,7 @@ import { brand } from "@/lib/theme";
 
 export default function HeroTitle() {
   return (
-    <section className="hero-stage h-svh">
+    <section id="top" className="hero-stage h-svh">
       <Image
         className="hero-static-logo"
         src={brand.mark}

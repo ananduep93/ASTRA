@@ -14,7 +14,7 @@ import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { scrollConfig, scrollSmoothing, touchScroll, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
-import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
+import { setLenis, writeScroll, stepSmooth, scrollState } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
 if (typeof window !== "undefined") {
@@ -46,7 +46,8 @@ export default function Providers({ children }) {
         // Read every frame (not only on scroll) so a page-height change is picked up too.
         writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
         const dt = Math.min(deltaMs / 1000, scrollSmoothing.maxDelta);
-        if (touch.matches) stepSmooth(dt, touchScroll.damping, touchScroll.maxProgressPerSecond);
+        // A menu trip lifts the touch cap, so the story keeps up with the scripted scroll.
+        if (touch.matches && !scrollState.travel) stepSmooth(dt, touchScroll.damping, touchScroll.maxProgressPerSecond);
         else stepSmooth(dt, scrollSmoothing.damping);
       };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and

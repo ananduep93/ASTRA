@@ -18,7 +18,7 @@ import * as THREE from "three";
 import gsap from "gsap";
 import { colors } from "@/lib/theme";
 import { hero } from "@/lib/motion";
-import { scrollState } from "@/lib/scrollStore";
+import { scrollState, getLenis } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
 import {
   toVh,
@@ -32,11 +32,14 @@ import {
   programHoldVh,
   finaleProgress,
   finaleSharedProgress,
+  arrivalVh,
 } from "@/lib/journey";
 import { storyStatus } from "@/lib/storyStatus";
 import HeroParticles from "./HeroParticles";
 import SquadClusters from "./SquadClusters";
 import ProgramField from "./ProgramField";
+import SquadAmbient from "./SquadAmbient";
+import TransitStreaks from "./TransitStreaks";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const BLACK = new THREE.Color(colors.black);
@@ -67,13 +70,19 @@ function TickerDriver() {
 /** Camera along the spline and the background tone, both from the shared value. */
 function WorldRig() {
   const look = useMemo(() => new THREE.Vector3(), []);
+  const dir = useMemo(() => new THREE.Vector3(), []);
+  const ahead = useMemo(() => new THREE.Vector3(0, 0, -1), []);
   useFrame((state) => {
     const s = toVh(scrollState.smooth);
     const cam = cameraAt(s);
-    CAMERA_CURVE.getPoint(cam.t, state.camera.position);
-    if (cam.look) look.set(cam.look[0], cam.look[1], cam.look[2]);
-    else look.copy(state.camera.position).z -= 1; // hero: straight ahead
+    const pos = state.camera.position;
+    CAMERA_CURVE.getPoint(cam.t, pos);
+    // Direction: straight ahead (hero flight) blended into "look at the target" by cam.aim.
+    dir.set(cam.look[0], cam.look[1], cam.look[2]).sub(pos).normalize();
+    if (cam.aim < 1) dir.lerp(ahead, 1 - cam.aim).normalize();
+    look.copy(pos).add(dir);
     state.camera.lookAt(look);
+    state.camera.rotateZ(cam.roll); // each squad's horizon tilt
 
     const tone = toneAt(s);
     worldUniforms.uFromW.value = tone.fromW;
@@ -133,6 +142,8 @@ function DebugStats({ tier, count }) {
         r.map((p, j) => ({ id: p.id, squad: p.squad, progress: programHoldVh(i, j) / TOTAL_SCROLL_VH }))
       ),
       finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
+      arrivals: ROSTERS.map((_, i) => arrivalVh(i) / TOTAL_SCROLL_VH), // each squad's arrival moment
+      lenisStopped: () => getLenis()?.isStopped ?? null,
     };
     return () => {
       delete window.__astraRender;
@@ -190,7 +201,9 @@ export default function Scene({ tier = "high", debug = false }) {
         <Backdrop />
         <HeroParticles count={cfg.particles} />
         <SquadClusters ambient={cfg.ambient} haze={cfg.haze} />
+        <SquadAmbient perSquad={cfg.squadAmbient} />
         <ProgramField count={cfg.particles} />
+        <TransitStreaks count={cfg.streaks} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>
