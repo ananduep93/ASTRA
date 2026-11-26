@@ -18,18 +18,80 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
-import { colors } from "@/lib/theme";
-import { hero, journey } from "@/lib/motion";
+import { colors, brand } from "@/lib/theme";
+import { hero, journey, finale as FIN } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { SQUADS } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
-import { sampleShape, fillTargets, seededRandom } from "@/lib/textTargets";
-import { ROSTERS, STOP_COUNT, toVh, stopIndexAt, fieldPresenceAt, morphAt, screenToLocal } from "@/lib/journey";
+import { EMBLEMS } from "@/data/emblems";
+import { sampleShape, sampleImage, fillTargets, seededRandom } from "@/lib/textTargets";
+import {
+  ROSTERS,
+  STOP_COUNT,
+  toVh,
+  stopIndexAt,
+  fieldPresenceAt,
+  morphAt,
+  screenToLocal,
+  finaleAt,
+} from "@/lib/journey";
 import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
 
 const F = journey.field;
 const HALF_FOV = THREE.MathUtils.degToRad(hero.camera.fov / 2);
 const CLOUD = "__cloud";
+const FINALE = STOP_COUNT; // "stop" index used for the finale
+const finaleKey = (k) => `__finale_${k}`; // "cloud" | "emblems" | "logo"
+
+/** The logo image whose transparency the finale samples (loaded once). */
+let logoPromise = null;
+const loadLogo = () =>
+  (logoPromise ??= new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = brand.sample;
+  }));
+
+/**
+ * Finale targets, sampled from the DOM boxes in components/Story/Finale.jsx:
+ * dots are split into five equal groups (one per squad); each group starts as
+ * a loose cloud on its slot, then forms its squad's emblem there; then every
+ * dot goes to a point of the logo.
+ */
+function sampleFinale(count, logoImg) {
+  const slots = [...document.querySelectorAll(".finale-slot")];
+  const logoEl = document.querySelector(".finale-logo");
+  if (slots.length !== STOP_COUNT || !logoEl || !logoImg) return null;
+  const wpp = localPerPx();
+  const per = Math.ceil(count / STOP_COUNT);
+  const group = (i) => Math.floor(i / per);
+  const cloud = new Float32Array(count * 3);
+  const emblems = new Float32Array(count * 3);
+  const rand = seededRandom(4242);
+  const g = () => (rand() + rand() + rand() - 1.5) / 1.5;
+
+  slots.forEach((slot, k) => {
+    const r = slot.getBoundingClientRect();
+    const sample = sampleShape(EMBLEMS[SQUADS[k]], r, 0.04);
+    if (sample) fillTargets(emblems, sample, wpp, seededRandom(70 + k), (i) => group(i) !== k);
+    const [cx, cy] = screenToLocal(r.left + r.width / 2, r.top + r.height / 2, hero.camera.fov);
+    const rad = r.width * wpp * FIN.cloudRadius;
+    for (let i = k * per; i < Math.min(count, (k + 1) * per); i++) {
+      cloud[i * 3] = cx + g() * rad;
+      cloud[i * 3 + 1] = cy + g() * rad;
+      cloud[i * 3 + 2] = g() * rad * 0.5;
+    }
+  });
+  for (let i = 0; i < count; i++) emblems[i * 3 + 2] *= 0.6;
+
+  const logo = new Float32Array(count * 3);
+  const ls = sampleImage(logoImg, logoEl.getBoundingClientRect(), 0);
+  if (!ls) return null;
+  fillTargets(logo, ls, wpp, seededRandom(2027), () => false);
+  for (let i = 0; i < count; i++) logo[i * 3 + 2] *= 0.5;
+  return { [finaleKey("cloud")]: cloud, [finaleKey("emblems")]: emblems, [finaleKey("logo")]: logo };
+}
 
 /** World units per screen pixel on a stop's cluster plane (its hold camera). */
 const localPerPx = () => (2 * journey.viewDistance * Math.tan(HALF_FOV)) / window.innerHeight;
@@ -241,11 +303,21 @@ export default function ProgramField({ count }) {
     let timer;
     let lastW = window.innerWidth;
     let lastH = window.innerHeight;
+    let cancelled = false;
     const run = () => {
       const result = sampleAllShapes(count);
       if (!result) return;
       shapes.current = result;
       current.current = { stop: -2, from: null, to: null }; // force the buffers to refresh
+      // The finale needs the logo image: add its targets once it has loaded.
+      loadLogo().then((img) => {
+        if (cancelled || shapes.current !== result) return;
+        const fin = sampleFinale(count, img);
+        if (!fin) return;
+        Object.assign(result.byKey, fin);
+        result.finale = true;
+        current.current = { stop: -2, from: null, to: null };
+      });
     };
     const first = requestIdleCallbackSafe(run);
     const onResize = () => {
@@ -259,6 +331,7 @@ export default function ProgramField({ count }) {
     };
     window.addEventListener("resize", onResize);
     return () => {
+      cancelled = true;
       first();
       clearTimeout(timer);
       window.removeEventListener("resize", onResize);
@@ -275,6 +348,40 @@ export default function ProgramField({ count }) {
     u.uMaxPx.value = 24 * state.viewport.dpr;
 
     const s = toVh(scrollState.smooth);
+
+    // Finale: the same dots, now at the finale spot: five clouds -> five emblems -> the logo.
+    const fin = finaleAt(s);
+    if (fin) {
+      if (!sh?.finale) {
+        u.uAlpha.value = 0;
+        pts.visible = false;
+        return;
+      }
+      u.uAlpha.value = fin.presence;
+      pts.visible = fin.presence > 0.001;
+      const fromKey = finaleKey(fin.morph.from);
+      const toKey = finaleKey(fin.morph.to);
+      const c = current.current;
+      if (c.stop !== FINALE) {
+        pts.position.set(...FIN.center);
+        u.uSig.value = 0; // the curling path (Arts signature maths), with the finale's own settings
+        u.uSize.value = FIN.size;
+        u.uStagger.value = FIN.stagger;
+      }
+      if (c.stop !== FINALE || c.from !== fromKey || c.to !== toKey) {
+        const geo = pts.geometry;
+        geo.attributes.aFrom.array.set(sh.byKey[fromKey]);
+        geo.attributes.aTo.array.set(sh.byKey[toKey]);
+        geo.attributes.aFrom.needsUpdate = true;
+        geo.attributes.aTo.needsUpdate = true;
+        const [curl, swirl] = fin.morph.to === "logo" ? FIN.mergePath : FIN.emblemPath;
+        u.uSigParams.value.set(curl, swirl, 0, 0);
+        current.current = { stop: FINALE, from: fromKey, to: toKey };
+      }
+      u.uMorph.value = fin.morph.t;
+      return;
+    }
+
     const i = stopIndexAt(s);
     if (i < 0 || !sh) {
       u.uAlpha.value = 0;
@@ -293,6 +400,8 @@ export default function ProgramField({ count }) {
     if (c.stop !== i) {
       const [x, y, z] = journey.centers[i];
       pts.position.set(x, y, z);
+      u.uSize.value = F.size; // back from the finale's settings
+      u.uStagger.value = F.stagger;
       u.uSig.value = Math.min(i, STOP_COUNT - 1);
       u.uSigParams.value.fromArray(signatureParams(SQUADS[i], sh.frame));
     }

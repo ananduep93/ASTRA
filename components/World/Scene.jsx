@@ -30,7 +30,10 @@ import {
   TOTAL_SCROLL_VH,
   ROSTERS,
   programHoldVh,
+  finaleProgress,
+  finaleSharedProgress,
 } from "@/lib/journey";
+import { storyStatus } from "@/lib/storyStatus";
 import HeroParticles from "./HeroParticles";
 import SquadClusters from "./SquadClusters";
 import ProgramField from "./ProgramField";
@@ -129,6 +132,7 @@ function DebugStats({ tier, count }) {
       holds: ROSTERS.map((r, i) =>
         r.map((p, j) => ({ id: p.id, squad: p.squad, progress: programHoldVh(i, j) / TOTAL_SCROLL_VH }))
       ),
+      finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
     };
     return () => {
       delete window.__astraRender;
@@ -150,6 +154,8 @@ function DebugStats({ tier, count }) {
       intro: heroStatus.intro,
       alpha: heroStatus.alpha,
       introSkipped: heroStatus.skipped,
+      transmission: storyStatus.transmission,
+      finale: finaleProgress(s),
     };
   });
   return null;

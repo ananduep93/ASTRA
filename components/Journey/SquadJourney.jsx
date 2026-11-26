@@ -3,8 +3,9 @@
 /**
  * The five squad stops (Arts, Tech, Gaming, Business, Fun).
  *
- * Live (canvas): each stop is a fixed overlay (not pinned). The squad name
- * rises in on arrival; then ONE program is in focus at a time as you scroll:
+ * Live (canvas): each stop is a fixed overlay (not pinned). The squad's
+ * dossier (emblem, status line, codename, mission, briefing) rises in on
+ * arrival; then ONE program is in focus at a time as you scroll:
  * its dots form its shape (ProgramField, behind), its name rises line by line
  * (SplitText lines inside a mask), with an overall counter, a short squad rail
  * and a Details button. Every reveal is a paused GSAP timeline whose progress
@@ -23,6 +24,8 @@ import { journey, ease, stagger, duration } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { ROSTERS, PROGRAM_TOTAL, programNumber, toVh, headTextAt, programTextAt, focusAt } from "@/lib/journey";
 import { openProgram } from "@/lib/programDialog";
+import { dossiers, squadStatus, briefing, missionFileLabel } from "@/data/story";
+import Emblem from "@/components/Story/Emblem";
 
 const isStatic = () => document.documentElement.dataset.world === "static";
 const pad = (n) => String(n).padStart(2, "0");
@@ -34,10 +37,18 @@ function SquadStop({ squad, index }) {
   return (
     <section className="squad-stop" data-stop={index} data-tone={tone} aria-labelledby={headingId}>
       <header className="squad-head">
-        <h2 id={headingId} className="squad-name">
-          {squad}
+        <p className="squad-status">
+          <Emblem squad={squad} className="squad-emblem" />
+          <span>{squadStatus(squad)}</span>
+        </p>
+        {/* The codename is the big title; screen readers hear the squad first. */}
+        <h2 id={headingId} className="squad-title">
+          <span className="sr-only">{squad} squad, codename </span>
+          <span className="squad-name">{dossiers[squad].codename}</span>
         </h2>
-        <p className="squad-brief">Briefing TBA</p>
+        <p className="squad-brief">
+          <span className="squad-mission">{dossiers[squad].mission}</span> <span className="squad-briefing">{briefing}</span>
+        </p>
       </header>
 
       {/* Where the dots draw the focused program's shape. Tapping it opens Details
@@ -64,12 +75,15 @@ function SquadStop({ squad, index }) {
           return (
             <article key={p.id} className="program-focus" data-program={j} aria-labelledby={`program-${p.id}`}>
               <p className="program-count" aria-label={`Program ${n} of ${PROGRAM_TOTAL}`}>
-                {pad(n)} / {pad(PROGRAM_TOTAL)}
+                <span className="program-file">{missionFileLabel}</span> {pad(n)} / {pad(PROGRAM_TOTAL)}
               </p>
               <h3 id={`program-${p.id}`} className="program-name">
                 {p.name}
               </h3>
-              <p className="program-squad">{squad} squad</p>
+              <p className="program-squad">
+                <Emblem squad={squad} className="program-badge" />
+                <span>{squad} squad</span>
+              </p>
               <button
                 type="button"
                 className="program-details"
@@ -104,12 +118,14 @@ export default function SquadJourney() {
       const programTls = []; // programTls[i][j] = latest timeline (replaced on re-split)
 
       stops.forEach((stop, i) => {
-        // Squad name: characters rise out of a mask; briefing follows.
+        // Dossier: status line first, then the codename's characters rise out of a mask, then the mission.
         const head = gsap.timeline({ paused: true, defaults: { ease: ease.out } });
-        const name = SplitText.create(stop.querySelector(".squad-name"), { type: "chars", mask: "chars" });
+        // aria "none": the heading already has its own screen-reader text (sr-only squad name).
+        const name = SplitText.create(stop.querySelector(".squad-name"), { type: "chars", mask: "chars", aria: "none" });
         splits.push(name);
-        head.from(name.chars, { yPercent: 110, duration: duration.base, stagger: stagger.tight });
-        head.from(stop.querySelector(".squad-brief"), { opacity: 0, yPercent: 60, duration: duration.base }, duration.fast);
+        head.from(stop.querySelector(".squad-status"), { opacity: 0, xPercent: -6, duration: duration.base });
+        head.from(name.chars, { yPercent: 110, duration: duration.base, stagger: stagger.tight }, duration.fast * 0.5);
+        head.from(stop.querySelector(".squad-brief"), { opacity: 0, yPercent: 30, duration: duration.base }, duration.fast * 1.5);
         heads.push(head);
 
         programTls[i] = [];

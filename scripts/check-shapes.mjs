@@ -7,8 +7,10 @@
 //  3. no two programs use the same shape key
 //  4. no two programs use identical path data under different keys
 //  5. PROGRAM_SHAPES has no entries for programs that do not exist
-import { programs } from "../data/programs.js";
+import { programs, SQUADS } from "../data/programs.js";
 import { SHAPES, PROGRAM_SHAPES } from "../data/shapes.js";
+import { EMBLEMS } from "../data/emblems.js";
+import { dossiers } from "../data/story.js";
 
 const problems = [];
 const geometry = (shape) => JSON.stringify((shape.parts ?? [shape]).map((p) => [p.d, p.rule]));
@@ -37,8 +39,21 @@ for (const p of programs) {
 const ids = new Set(programs.map((p) => p.id));
 for (const id of Object.keys(PROGRAM_SHAPES)) if (!ids.has(id)) problems.push(`PROGRAM_SHAPES has "${id}", which is not a program`);
 
+// Squad emblems and dossiers: one each per squad, no two emblems alike.
+const emblemOwner = new Map();
+for (const squad of SQUADS) {
+  const emblem = EMBLEMS[squad];
+  if (!emblem) problems.push(`squad "${squad}" has no emblem in data/emblems.js`);
+  else {
+    const g = geometry(emblem);
+    if (emblemOwner.has(g)) problems.push(`squads "${squad}" and "${emblemOwner.get(g)}" have identical emblems`);
+    emblemOwner.set(g, squad);
+  }
+  if (!dossiers[squad]?.codename || !dossiers[squad]?.mission) problems.push(`squad "${squad}" has no dossier in data/story.js`);
+}
+
 if (problems.length) {
   console.error(`check-shapes: FAILED\n - ${problems.join("\n - ")}`);
   process.exit(1);
 }
-console.log(`check-shapes: ok (${programs.length} programs, ${keyOwner.size} unique shapes)`);
+console.log(`check-shapes: ok (${programs.length} programs, ${keyOwner.size} unique shapes, ${emblemOwner.size} squad emblems)`);

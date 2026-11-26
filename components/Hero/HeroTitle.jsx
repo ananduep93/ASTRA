@@ -8,10 +8,22 @@
  * - The invisible "ghost" copy below has the same font, size and line breaks.
  *   The particle sampler reads its word boxes ([data-hero-word]) to know where
  *   each letter pixel goes. It is never shown and hidden from assistive tech.
+ * - The logo image shows only in static mode (live, the comet brings it in).
  */
+import Image from "next/image";
+import { brand } from "@/lib/theme";
+
 export default function HeroTitle() {
   return (
     <section className="hero-stage h-svh">
+      <Image
+        className="hero-static-logo"
+        src={brand.mark}
+        width={brand.markSize[0]}
+        height={brand.markSize[1]}
+        alt="ASTRA logo"
+        unoptimized
+      />
       <div className="hero-title-wrap">
         <h1 className="hero-title hero-h1">
           <span className="hero-line">ASTRA</span> <span className="hero-line">2027</span>

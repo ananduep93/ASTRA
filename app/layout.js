@@ -26,9 +26,13 @@ const body = Instrument_Sans({
   display: "swap",
 });
 
+// Icons and the share image come from files in app/ (icon.png, apple-icon.png,
+// favicon.ico, opengraph-image.png), built by scripts/make-brand.py.
 export const metadata = {
   title: "ASTRA 2027",
   description: "ASTRA 2027, the inter-college arts and tech fest of Don Bosco College, Mampetta.",
+  // Placeholder until the real domain is known: lets Next build absolute og:image URLs.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
 };
 
 export const viewport = {

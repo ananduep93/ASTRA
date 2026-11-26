@@ -17,6 +17,7 @@ import { scrollState, rangeLinear, rangeSmooth, snapSmooth } from "@/lib/scrollS
 import { waitForFont, sampleWords, fillTargets, seededRandom } from "@/lib/textTargets";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 import { heroProgress, toVh } from "@/lib/journey";
+import { storyStatus } from "@/lib/storyStatus";
 
 const WHITE = new THREE.Color(colors.white);
 const BLACK = new THREE.Color(colors.black);
@@ -287,6 +288,10 @@ export default function HeroParticles({ count }) {
     heroStatus.intro = form;
     heroStatus.alpha = u.uAlpha.value;
     heroStatus.skipped = it.skip;
+    // For the DOM story beats (opening transmission, HUD): no three.js needed there.
+    storyStatus.heroForm = form;
+    storyStatus.heroRunning = running;
+    storyStatus.heroSkipped = it.skip;
     u.uScale.value = (state.size.height * state.viewport.dpr * 0.5) / Math.tan(HALF_FOV);
     u.uMaxPx.value = P.maxPointPx * state.viewport.dpr;
   });

@@ -173,13 +173,33 @@ html[data-world="live"] .hero-title-wrap {
   --stop-fg: var(--astra-white);
 }
 
+/* Dossier header: emblem + status line, codename, mission and briefing.
+   Starts below the HUD bar (logo mark + status) so they never touch. */
 .squad-head {
   position: absolute;
-  top: var(--astra-space-lg);
-  right: calc(var(--astra-space-gutter) + 2rem); /* room for the progress marks */
+  top: var(--hud-clear);
+  right: calc(var(--astra-space-gutter) + 2rem); /* room for the HUD progress line */
   left: var(--astra-space-gutter);
 }
+.squad-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem; /* 14px: meaningful text */
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.squad-emblem {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.squad-title {
+  margin-top: var(--astra-space-2xs);
+}
 .squad-name {
+  display: block;
   font-family: var(--astra-font-display);
   font-size: var(--astra-text-h3);
   font-weight: 800;
@@ -187,17 +207,29 @@ html[data-world="live"] .hero-title-wrap {
   text-transform: uppercase;
 }
 .squad-brief {
-  margin-top: var(--astra-space-3xs);
-  font-size: var(--astra-text-body);
+  max-width: 34rem;
+  margin-top: var(--astra-space-2xs);
+  font-size: max(0.875rem, var(--astra-text-small));
+  line-height: 1.4;
+}
+.squad-briefing {
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+/* Squad emblems (data/emblems.js): red shapes, never text. */
+.emblem {
+  display: inline-block;
+  fill: var(--astra-red);
 }
 
 /* The shape area: the dots draw the focused program here; tapping it opens Details. */
 .program-shape {
   position: absolute;
-  top: 19svh;
+  top: max(28svh, calc(var(--hud-clear) + 8.5rem)); /* below the dossier */
   right: calc(var(--astra-space-gutter) + 2rem);
   left: var(--astra-space-gutter);
-  height: 35svh;
+  bottom: 45svh;
   padding: 0;
   border: 0;
   background: none;
@@ -211,7 +243,7 @@ html[data-world="live"] .hero-title-wrap {
 
 .program-copy {
   position: absolute;
-  top: 56svh;
+  top: 57svh;
   right: calc(var(--astra-space-gutter) + 2rem);
   bottom: var(--astra-space-md);
   left: var(--astra-space-gutter);
@@ -231,6 +263,14 @@ html[data-world="live"] .hero-title-wrap {
 .program-count {
   font-size: max(0.875rem, var(--astra-text-small)); /* never under 14px */
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.program-file {
+  padding: 0.1rem 0.4rem;
+  margin-right: 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
 }
 .program-name {
   font-family: var(--astra-font-display);
@@ -240,7 +280,16 @@ html[data-world="live"] .hero-title-wrap {
   text-transform: uppercase;
 }
 .program-squad {
-  font-size: var(--astra-text-body);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: max(0.875rem, var(--astra-text-small));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.program-badge {
+  width: 18px;
+  height: 18px;
 }
 .program-details {
   min-height: 44px; /* comfortable tap target */
@@ -287,7 +336,7 @@ html[data-world="live"] .hero-title-wrap {
 /* Wide screens: squad name and the focused program on the left, the shape on the right. */
 @media (min-width: 900px) {
   .squad-head {
-    top: 12vh;
+    top: max(12vh, var(--hud-clear));
     right: auto;
     width: 40%;
   }
@@ -296,16 +345,16 @@ html[data-world="live"] .hero-title-wrap {
     right: calc(var(--astra-space-gutter) + 3rem);
     bottom: 12vh;
     left: 48%;
-    height: auto;
   }
   .program-copy {
-    top: 30vh;
+    top: calc(max(12vh, var(--hud-clear)) + 12.5rem); /* below the dossier */
     right: auto;
     bottom: 12vh;
     width: 40%;
   }
   .program-name {
-    font-size: min(var(--astra-text-h1), 7.5vw);
+    /* also capped by height, so a three-line name never reaches the HUD at the bottom */
+    font-size: min(var(--astra-text-h1), 7.5vw, 11vh);
   }
 }
 
@@ -350,41 +399,295 @@ html[data-world="live"] .hero-title-wrap {
 }
 
 
-/* Which squad you are at: five small marks on the right edge. */
-.progress-marks {
+/* -------------------------------------------------------------------- HUD */
+/* Fixed, click-through frame. Colours follow the background via data-tone.
+   --hud-clear is how far content must stay from the top (below the HUD bar). */
+:root {
+  --hud-edge-t: max(var(--astra-hud-inset), env(safe-area-inset-top));
+  --hud-edge-r: max(var(--astra-hud-inset), env(safe-area-inset-right));
+  --hud-edge-b: max(var(--astra-hud-inset), env(safe-area-inset-bottom));
+  --hud-edge-l: max(var(--astra-hud-inset), env(safe-area-inset-left));
+  --hud-clear: calc(var(--hud-edge-t) + 44px);
+}
+.hud {
   position: fixed;
-  top: 50%;
-  right: var(--astra-space-gutter);
+  inset: 0;
   z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  list-style: none;
-  color: var(--marks-fg);
+  color: var(--hud-fg);
   opacity: 0;
   pointer-events: none;
+}
+.hud[data-tone="dark"] {
+  --hud-fg: var(--astra-white);
+  --hud-logo: none;
+}
+.hud[data-tone="light"] {
+  --hud-fg: var(--astra-black);
+  --hud-logo: var(--astra-logo-on-light);
+}
+.hud-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid currentColor;
+  opacity: var(--astra-hud-line);
+}
+.hud-corner[data-corner="tl"] {
+  top: var(--hud-edge-t);
+  left: var(--hud-edge-l);
+  border-width: 1px 0 0 1px;
+}
+.hud-corner[data-corner="tr"] {
+  top: var(--hud-edge-t);
+  right: var(--hud-edge-r);
+  border-width: 1px 1px 0 0;
+}
+.hud-corner[data-corner="bl"] {
+  bottom: var(--hud-edge-b);
+  left: var(--hud-edge-l);
+  border-width: 0 0 1px 1px;
+}
+.hud-corner[data-corner="br"] {
+  right: var(--hud-edge-r);
+  bottom: var(--hud-edge-b);
+  border-width: 0 1px 1px 0;
+}
+.hud-mark {
+  position: absolute;
+  top: calc(var(--hud-edge-t) + 8px);
+  left: calc(var(--hud-edge-l) + 8px);
+  width: 32px;
+  height: auto;
+  opacity: 0; /* shown when the opening comet lands */
+  filter: var(--hud-logo);
+}
+.hud-status {
+  position: absolute;
+  top: calc(var(--hud-edge-t) + 12px);
+  right: calc(var(--hud-edge-r) + 10px);
+  max-width: calc(100vw - 7rem);
+  overflow: hidden;
+  font-size: 0.875rem; /* 14px: meaningful */
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Slim progress line on the right edge, one tick per squad. */
+.hud-rail {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--hud-edge-r) + 6px);
+  width: 9px;
+  height: 36svh;
   transform: translateY(-50%);
+  transition: opacity var(--astra-dur-base) var(--astra-ease-out);
 }
-.progress-marks[data-tone="light"] {
-  --marks-fg: var(--astra-black);
-}
-.progress-marks[data-tone="dark"] {
-  --marks-fg: var(--astra-white);
-}
-.progress-mark {
-  width: 20px;
-  height: 2px;
+.hud-rail::before,
+.hud-rail-fill {
+  position: absolute;
+  top: 0;
+  left: 4px;
+  width: 1px;
+  height: 100%;
   background: currentColor;
-  opacity: 0.45;
-  transform: scaleX(0.45);
-  transform-origin: right;
+  content: "";
+}
+.hud-rail::before {
+  opacity: var(--astra-hud-line);
+}
+.hud-rail-fill {
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.hud-ticks {
+  list-style: none;
+}
+.hud-tick {
+  position: absolute;
+  top: calc(var(--at) * 100%);
+  left: 0;
+  width: 9px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+  transform: scaleX(0.6);
   transition:
     transform var(--astra-dur-fast) var(--astra-ease-out),
     opacity var(--astra-dur-fast) var(--astra-ease-out);
 }
-.progress-mark[aria-current="step"] {
+.hud-tick[aria-current="step"] {
   opacity: 1;
-  transform: scaleX(1);
+  transform: scaleX(1.6);
+}
+/* Decorative coordinates: wide screens only (phones need the space for content). */
+.hud-coords {
+  display: none;
+  position: absolute;
+  bottom: calc(var(--hud-edge-b) + 6px);
+  left: calc(var(--hud-edge-l) + 22px);
+  font-size: 0.75rem; /* 12px decorative */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+@media (min-width: 900px) {
+  .hud-coords {
+    display: block;
+  }
+}
+
+/* --------------------------------------------------------- transmission */
+/* The opening line under the headline, and the comet that brings the logo in. */
+.transmission {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.transmission-line {
+  position: absolute;
+  top: 0;
+  right: var(--astra-space-gutter);
+  left: var(--astra-space-gutter);
+  font-size: max(0.875rem, var(--astra-text-small));
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+  text-wrap: balance; /* no single word left alone on a phone */
+  opacity: 0; /* shown when it types in */
+}
+.transmission-comet,
+.transmission-trail i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.transmission-comet {
+  width: 32px; /* same as the HUD mark: it lands exactly on it */
+  height: auto;
+  transform-origin: 50% 50%;
+}
+.transmission-trail i {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--astra-white);
+}
+.transmission-trail i[data-red] {
+  background: var(--astra-red);
+}
+.hero-static-logo,
+.finale-static-logo {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- finale */
+.finale {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  --finale-stage-h: min(52svh, 110vw);
+  color: var(--astra-white);
+  visibility: hidden;
+  pointer-events: none;
+}
+/* Where the dots draw the five emblems (a pentagon) and the logo (centre). */
+.finale-stage {
+  position: absolute;
+  top: calc(var(--hud-clear) + 0.5rem);
+  left: 50%;
+  width: min(calc(100% - 2 * var(--astra-space-gutter) - 2rem), var(--finale-stage-h) * 1.35);
+  height: var(--finale-stage-h);
+  transform: translateX(-50%);
+}
+.finale-slot {
+  position: absolute;
+  width: 22%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.finale-slot[data-slot="0"] {
+  top: 11%;
+  left: 50%;
+}
+.finale-slot[data-slot="1"] {
+  top: 40%;
+  left: 88%;
+}
+.finale-slot[data-slot="2"] {
+  top: 88%;
+  left: 74%;
+}
+.finale-slot[data-slot="3"] {
+  top: 88%;
+  left: 26%;
+}
+.finale-slot[data-slot="4"] {
+  top: 40%;
+  left: 12%;
+}
+.finale-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90%;
+  max-height: 96%;
+  aspect-ratio: 3556 / 2860; /* the cropped logo */
+  transform: translate(-50%, -50%);
+}
+.finale-sweep-clip {
+  position: absolute;
+  inset: -10%;
+  overflow: hidden;
+  transform: rotate(-34deg); /* along the logo's own comet streak */
+}
+.finale-sweep {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 55%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--astra-white) 70%, var(--astra-red));
+  opacity: 0;
+}
+.finale-copy {
+  position: absolute;
+  top: calc(var(--hud-clear) + 0.5rem + var(--finale-stage-h) + var(--astra-space-md));
+  right: calc(var(--astra-space-gutter) + 1rem);
+  left: calc(var(--astra-space-gutter) + 1rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--astra-space-sm);
+  text-align: center;
+}
+.finale-line {
+  font-family: var(--astra-font-display);
+  font-size: min(var(--astra-text-h2), 11vw);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.finale-cta {
+  min-height: 48px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* --------------------------------------------------- program detail panel */
