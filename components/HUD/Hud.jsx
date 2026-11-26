@@ -9,6 +9,8 @@
  *  - a slim progress line on the right edge, with one tick per squad
  *    (an ordered list for screen readers: "Arts, 1 of 5")
  *  - decorative coordinates bottom left (wide screens only), from scroll progress
+ *  - a thin "syncing" line under the status while the scene is catching up
+ *    with a fast scroll (guided pace, lib/motion.js `pacing`)
  * Colours flip with the background through data-tone + theme variables.
  * Everything updates from gsap.ticker; nothing re-renders. Hidden in static mode.
  */
@@ -18,7 +20,7 @@ import gsap from "gsap";
 import { SQUADS } from "@/data/programs";
 import { squadStatus, hudStatus } from "@/data/story";
 import { brand } from "@/lib/theme";
-import { ease, duration, finale as FIN } from "@/lib/motion";
+import { ease, duration, finale as FIN, pacing } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
 import { toVh, activeStopAt, whitenessAt, stopStartVh, finaleProgress, TOTAL_SCROLL_VH } from "@/lib/journey";
@@ -54,6 +56,8 @@ export default function Hud() {
     const rail = el.querySelector(".hud-rail");
     const ticks = [...el.querySelectorAll(".hud-tick")];
     const coordEl = el.querySelector(".hud-coords");
+    const sync = el.querySelector(".hud-sync");
+    let lastSync = -1;
 
     // Each squad's tick sits where its stop starts on the progress line.
     ticks.forEach((t, i) => t.style.setProperty("--at", String(stopStartVh(i) / TOTAL_SCROLL_VH)));
@@ -102,6 +106,16 @@ export default function Hud() {
         fill.style.transform = `scaleY(${p})`;
         rail.style.opacity = active >= 0 || inFinale ? "1" : "0.5";
       }
+      // Syncing: how far the scene is behind the real scroll position.
+      const gap = Math.abs(scrollState.progress - scrollState.smooth);
+      const g = gap < pacing.syncFrom ? 0 : Math.min(1, gap / pacing.syncFull);
+      const gr = Math.round(g * 200) / 200;
+      if (gr !== lastSync) {
+        lastSync = gr;
+        sync.style.transform = `scaleX(${Math.max(gr, 0.001)})`;
+        sync.style.opacity = gr > 0 ? "1" : "0";
+      }
+
       const c = coords(scrollState.smooth);
       if (c !== lastCoords) coordEl.textContent = lastCoords = c;
     };
@@ -128,6 +142,7 @@ export default function Hud() {
       <p className="hud-status" aria-hidden="true">
         {hudStatus.searching}
       </p>
+      <span className="hud-sync" aria-hidden="true" />
       <div className="hud-rail">
         <span className="hud-rail-fill" aria-hidden="true" />
         <ol className="hud-ticks" aria-label="Squad progress">

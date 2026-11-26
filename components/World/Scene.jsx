@@ -18,7 +18,7 @@ import * as THREE from "three";
 import gsap from "gsap";
 import { colors } from "@/lib/theme";
 import { hero } from "@/lib/motion";
-import { scrollState, getLenis } from "@/lib/scrollStore";
+import { scrollState, getLenis, tripActive } from "@/lib/scrollStore";
 import { TIERS } from "@/lib/quality";
 import {
   toVh,
@@ -144,6 +144,7 @@ function DebugStats({ tier, count }) {
       finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
       arrivals: ROSTERS.map((_, i) => arrivalVh(i) / TOTAL_SCROLL_VH), // each squad's arrival moment
       lenisStopped: () => getLenis()?.isStopped ?? null,
+      tripActive,
     };
     return () => {
       delete window.__astraRender;
@@ -158,7 +159,8 @@ function DebugStats({ tier, count }) {
       calls: gl.info.render.calls,
       points: gl.info.render.points,
       dpr: gl.getPixelRatio(),
-      progress: scrollState.smooth,
+      progress: scrollState.smooth, // scene progress (paced)
+      scroll: scrollState.progress, // real scroll position
       vh: s,
       stop: activeStopAt(s),
       focus: focusAt(s),

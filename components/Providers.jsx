@@ -4,7 +4,7 @@
  * Client-side engine. Sets up:
  *  - GSAP + ScrollTrigger (registered once)
  *  - Lenis smooth scroll, driven by gsap.ticker (no extra requestAnimationFrame loop)
- *  - the shared scroll value in lib/scrollStore.js
+ *  - the shared scroll value in lib/scrollStore.js (real scroll + paced scene progress)
  * With prefers-reduced-motion, Lenis is off and native scrolling is used.
  */
 import { useEffect } from "react";
@@ -13,8 +13,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
-import { scrollConfig, scrollSmoothing, touchScroll, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
-import { setLenis, writeScroll, stepSmooth, scrollState } from "@/lib/scrollStore";
+import { scrollConfig, scrollSmoothing, touchScroll, pacing, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
+import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
 if (typeof window !== "undefined") {
@@ -39,16 +39,15 @@ export default function Providers({ children }) {
       lenis.on("scroll", ScrollTrigger.update);
       writeScroll(lenis.animatedScroll, lenis.limit, 0);
 
-      // Touch screens: calmer shared value with a per-second cap (see touchScroll in lib/motion.js).
+      // Guided pace: the scene follows the real scroll, capped at pacing.maxPerSecond
+      // (wheel and touch alike). Touch keeps its slightly calmer damping.
       const touch = window.matchMedia(TOUCH_QUERY);
       const tick = (time, deltaMs) => {
         lenis.raf(time * 1000); // gsap.ticker gives seconds; Lenis wants milliseconds
         // Read every frame (not only on scroll) so a page-height change is picked up too.
         writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
         const dt = Math.min(deltaMs / 1000, scrollSmoothing.maxDelta);
-        // A menu trip lifts the touch cap, so the story keeps up with the scripted scroll.
-        if (touch.matches && !scrollState.travel) stepSmooth(dt, touchScroll.damping, touchScroll.maxProgressPerSecond);
-        else stepSmooth(dt, scrollSmoothing.damping);
+        stepSmooth(dt, touch.matches ? touchScroll.damping : scrollSmoothing.damping, pacing.maxPerSecond);
       };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and
       // DOM read this frame's scroll value, not last frame's.
@@ -71,7 +70,7 @@ export default function Providers({ children }) {
       read();
       window.addEventListener("scroll", read, { passive: true });
       window.addEventListener("resize", read);
-      // Reduced motion: no glide, the smoothed value just equals the real one.
+      // Reduced motion: no glide and no pacing, the scene just equals the real scroll.
       const tick = () => {
         read();
         stepSmooth(1, 1e6);

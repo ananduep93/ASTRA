@@ -21,8 +21,8 @@ import gsap from "gsap";
 import { SQUADS } from "@/data/programs";
 import { menu as copy } from "@/data/story";
 import { brand } from "@/lib/theme";
-import { ease, menuMotion as M, prefersReducedMotion } from "@/lib/motion";
-import { scrollState, getLenis } from "@/lib/scrollStore";
+import { ease, menuMotion as M, tripDuration, prefersReducedMotion } from "@/lib/motion";
+import { scrollState, getLenis, startTrip } from "@/lib/scrollStore";
 import {
   toVh,
   activeStopAt,
@@ -77,16 +77,14 @@ function travelTo(item) {
     window.scrollTo(0, y); // reduced motion: instant
     return;
   }
-  const fromVh = toVh(scrollState.progress);
+  const fromVh = toVh(scrollState.smooth); // from where the scene is
   const toVhTarget = live ? item.progress() * TOTAL_SCROLL_VH : (y / Math.max(1, max)) * TOTAL_SCROLL_VH;
-  const duration = Math.min(M.tripMax, Math.max(M.tripMin, M.tripMin + Math.abs(toVhTarget - fromVh) * M.tripPerVh));
-  scrollState.travel = true;
-  lenis.scrollTo(y, {
-    duration,
-    easing: gsap.parseEase(ease.inOut), // the shared ease, as a function
-    force: true,
-    onComplete: () => (scrollState.travel = false),
-  });
+  const duration = tripDuration(toVhTarget - fromVh);
+  const easing = gsap.parseEase(ease.inOut); // the shared ease, as a function
+  // The page scrolls there, and the scene plays the same eased trip (faster than the
+  // normal pace, for this move only), so it feels like travelling, not teleporting.
+  startTrip(Math.min(1, Math.max(0, y / Math.max(1, max))), duration, easing);
+  lenis.scrollTo(y, { duration, easing, force: true });
 }
 
 export default function Menu() {

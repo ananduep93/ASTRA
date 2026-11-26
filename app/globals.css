@@ -514,6 +514,19 @@ html[data-world="live"] .hero-title-wrap {
   text-transform: uppercase;
   white-space: nowrap;
 }
+/* Syncing: grows from the right while the scene catches up with a fast scroll. */
+.hud-sync {
+  position: absolute;
+  top: calc(var(--hud-edge-t) + 36px);
+  right: calc(var(--hud-edge-r) + 50px);
+  width: 96px;
+  height: 1px;
+  background: var(--astra-red);
+  opacity: 0;
+  transform: scaleX(0.001);
+  transform-origin: right;
+  transition: opacity var(--astra-dur-fast) var(--astra-ease-out);
+}
 /* Slim progress line on the right edge, one tick per squad. */
 @media (max-width: 420px) {
   .hud-status {

@@ -11,16 +11,25 @@
  * Hidden in static mode, where every program is already a visible card.
  */
 import { SQUADS } from "@/data/programs";
-import { ROSTERS, scrollTargetFor } from "@/lib/journey";
-import { getLenis } from "@/lib/scrollStore";
+import { ROSTERS, scrollTargetFor, TOTAL_SCROLL_VH } from "@/lib/journey";
+import gsap from "gsap";
+import { getLenis, startTrip, scrollState } from "@/lib/scrollStore";
+import { ease, tripDuration } from "@/lib/motion";
 import { openProgram } from "@/lib/programDialog";
 
 function bringIntoFocus(i, j) {
   const target = scrollTargetFor(i, j); // shared progress 0..1
   const y = target * (document.documentElement.scrollHeight - window.innerHeight);
   const lenis = getLenis();
-  if (lenis) lenis.scrollTo(y, { duration: 1.1 });
-  else window.scrollTo(0, y);
+  if (!lenis) {
+    window.scrollTo(0, y); // reduced motion: instant, no pacing
+    return;
+  }
+  // Like a menu trip: page and scene travel together with the shared ease.
+  const easing = gsap.parseEase(ease.inOut);
+  const duration = tripDuration((target - scrollState.smooth) * TOTAL_SCROLL_VH);
+  startTrip(target, duration, easing);
+  lenis.scrollTo(y, { duration, easing });
 }
 
 export default function ProgramIndex() {
