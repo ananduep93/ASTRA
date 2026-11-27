@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * PROGRAMS: right after the briefing, a normal page section (it scrolls like
- * any page; the shared scene progress only decides when things reveal).
+ * PROGRAMS: right after the star-iris, a normal page section (it scrolls like
+ * any page). Every reveal follows the REAL scroll position, never the paced
+ * scene, so the section is complete and clickable the moment it is on screen.
  *  - a kinetic header (SplitText lines, state-based reveal: never half-clipped)
+ *    and one short line about the fest under it
  *  - squad filter chips (All + five squads), stuck below the HUD while the
  *    section is on screen
  *  - a grid of poster cards for all 15 programs (1 / 2 / 3 columns), the first
@@ -13,7 +15,7 @@
  *    screen; a filter change moves the cards with GSAP Flip and re-staggers
  *    the ones that enter.
  * It also measures itself for the scroll map (lib/journey.js setLayout), so the
- * fixed hero / briefing / finale layers line up with real scrolling.
+ * fixed hero / finale layers line up with real scrolling.
  * The grid is a list of buttons: the accessible list of every program.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -24,8 +26,7 @@ import { useGSAP } from "@gsap/react";
 import { programs, SQUADS } from "@/data/programs";
 import { programsCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, programs as PGM, prefersReducedMotion } from "@/lib/motion";
-import { scrollState } from "@/lib/scrollStore";
-import { setLayout, sceneScrollY } from "@/lib/journey";
+import { setLayout } from "@/lib/journey";
 import { stateReveal } from "@/lib/reveal";
 import { openDetail } from "@/lib/detail";
 import Emblem from "@/components/Story/Emblem";
@@ -82,6 +83,7 @@ export default function Programs() {
           const tl = gsap.timeline({ paused: true });
           tl.from(el.querySelector(".programs-label"), { opacity: 0, yPercent: 40, duration: duration.base, ease: ease.out });
           tl.from(self.lines, { yPercent: 110, duration: duration.slow, ease: ease.expo, stagger: stagger.loose }, 0.1);
+          tl.from(el.querySelector(".programs-sub"), { opacity: 0, yPercent: 40, duration: duration.base, ease: ease.out }, 0.3);
           tl.from(el.querySelectorAll(".chip"), { opacity: 0, yPercent: 30, duration: duration.base, ease: ease.out, stagger: stagger.tight }, 0.35);
           tl.progress(headR.target);
           headTl = tl;
@@ -110,10 +112,8 @@ export default function Programs() {
           return;
         }
         const vh = window.innerHeight;
-        const sceneY = sceneScrollY(scrollState.smooth); // where the page "is" for the scene (paced)
-        const head = el.querySelector(".programs-head");
-        const headTop = head.getBoundingClientRect().top + window.scrollY;
-        headR.set(headTop - sceneY < vh * 0.85);
+        // Real screen positions (not the paced scene): on screen = revealed.
+        headR.set(el.querySelector(".programs-head").getBoundingClientRect().top < vh * PGM.headAt);
 
         // Cards: shown once their top is on screen (by the scene's position), a short stagger per column.
         const cols = Math.max(1, getComputedStyle(el.querySelector(".cards")).gridTemplateColumns.split(" ").length);
@@ -130,8 +130,7 @@ export default function Programs() {
             entry.wait = null;
             entry.afterFilter = true;
           }
-          const top = card.getBoundingClientRect().top + window.scrollY;
-          const on = top - sceneY < vh * PGM.revealAt;
+          const on = card.getBoundingClientRect().top < vh * PGM.revealAt;
           if (!on) {
             entry.wait?.kill();
             entry.wait = null;
@@ -196,6 +195,7 @@ export default function Programs() {
             </span>
           ))}
         </h2>
+        <p className="programs-sub">{COPY.subline}</p>
       </header>
 
       <div className="chips" role="group" aria-label={COPY.filterLabel}>

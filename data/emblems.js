@@ -4,7 +4,7 @@
  * bold and filled so it reads at 24px. The same format as data/shapes.js:
  *   { parts: [{ d, rule }, ...] }   several filled paths (their union)
  *
- * They are used twice: as small SVGs on the squad dossiers, and in the finale,
+ * They are used twice: as small SVG badges on the program cards, and in the finale,
  * where the dots form all five before they merge into the logo.
  * scripts/check-shapes.mjs fails the build if a squad has no emblem or two match.
  */

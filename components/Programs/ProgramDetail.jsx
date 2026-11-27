@@ -29,7 +29,7 @@ import { detailCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, detail as DET, prefersReducedMotion } from "@/lib/motion";
 import { getLenis, startTrip } from "@/lib/scrollStore";
 import { DETAIL_EVENT, showDetailShape, hideDetailShape } from "@/lib/detail";
-import { toProgress, HERO_END } from "@/lib/journey";
+import { toProgress, programsFullVh } from "@/lib/journey";
 import Emblem from "@/components/Story/Emblem";
 import ShapeArt from "./ShapeArt";
 
@@ -60,7 +60,7 @@ function jumpToPrograms() {
   const lenis = getLenis();
   if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
   else window.scrollTo(0, y);
-  startTrip(toProgress(HERO_END + 100), 0.01, (t) => t); // the scene is there on the next frame
+  startTrip(toProgress(programsFullVh()), 0.01, (t) => t); // the scene is there on the next frame
 }
 
 export default function ProgramDetail() {

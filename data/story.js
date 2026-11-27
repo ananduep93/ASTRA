@@ -5,42 +5,18 @@
  * whatever the team wants. Nothing here is an event fact: dates, venues,
  * fees and rules stay "TBA" until the organisers confirm them.
  */
-import { TBA } from "./programs.js"; // ".js" so scripts/check-shapes.mjs can load it in plain Node
-
 /* Opening: types in under the ASTRA 2027 headline once the stars have formed it. */
 export const transmission = {
   line: "Signal detected. Five squads needed.", // EDITABLE
 };
 
-/*
- * Briefing: right after the screen turns white, before the first squad.
- * Date and venue stay TBA until the organisers confirm them. The program and
- * squad counts are NOT typed here: they are counted from data/programs.js.
- */
-export const briefingCopy = {
-  label: "Mission briefing", // EDITABLE
-  // Big kinetic headline: one array entry per line.
-  headline: ["One sky.", "Every campus.", "Five squads."], // EDITABLE
-  // What ASTRA is (2-3 lines). EDITABLE placeholder; only the college and the arts + tech fest are facts.
-  about:
-    "ASTRA is the inter-college arts and tech fest of Don Bosco College, Mampetta. " +
-    "Students from campuses across the region form squads and take on missions in arts, tech, gaming, business and fun.",
-  college: "Don Bosco College, Mampetta",
-  year: "2027",
-  factsLabel: "Mission facts", // EDITABLE
-  facts: {
-    date: { label: "Date", value: TBA },
-    venue: { label: "Venue", value: TBA },
-    programs: { label: "Programs" }, // value = number of programs in data/programs.js
-    squads: { label: "Squads" }, // value = number of squads in data/programs.js
-  },
-};
-
-/* The programs section (after the briefing). */
+/* The programs section (right after the star-iris). */
 export const programsCopy = {
   label: "Mission files", // EDITABLE
   // Big kinetic headline: one array entry per line. The count comes from data/programs.js.
   headline: (count) => [`${count} missions.`, "Pick yours."], // EDITABLE
+  // One short line under the title. Facts only: the college, the kind of fest, the year.
+  subline: "Inter-college arts and tech fest, Don Bosco College, Mampetta, 2027.", // EDITABLE
   filterLabel: "Filter by squad",
   all: "All",
   open: "Open mission file", // screen-reader hint on each card
@@ -69,7 +45,6 @@ export const menu = {
   close: "Close menu",
   title: "Navigate the story",
   home: "Home",
-  briefing: "Briefing",
   programs: "Programs",
   finale: "Finale / Register",
 };
@@ -78,7 +53,6 @@ export const menu = {
 export const hudStatus = {
   searching: "Signal: searching", // before the opening line has played
   detected: "Signal: detected", // after it
-  briefing: "Mission briefing", // during the briefing
   programs: "Mission files", // in the programs section
   inbound: "All squads: inbound", // finale, while the dots gather
   online: "All squads: online", // finale, once the logo has formed

@@ -4,7 +4,7 @@
  * The ONE fixed 3D canvas behind the whole site.
  *
  * Hero: stars assemble "ASTRA 2027", the camera flies through the letters, the
- * star-iris turns the world white for the briefing. The camera rests while the
+ * star-iris turns the world white as the programs rise. The camera rests while the
  * programs section (a normal page section) is read, then glides to the finale.
  * The shape dots form the finale logo, and a program's shape in its detail view.
  * Everything reads scrollState.smooth, the shared smoothed scroll value,
@@ -29,10 +29,9 @@ import {
   partAt,
   CAMERA_POINTS,
   totalVh,
-  HERO_END,
+  programsFullVh,
   finaleProgress,
   finaleSharedProgress,
-  briefingSharedProgress,
 } from "@/lib/journey";
 import { storyStatus } from "@/lib/storyStatus";
 import { detailState } from "@/lib/detail";
@@ -157,12 +156,11 @@ function DebugStats({ tier, count }) {
     // Scroll map for tests.
     window.__astraJourney = {
       totalVh,
-      programsAt: () => toProgress(HERO_END + 100), // the programs section filling the screen
+      programsAt: () => toProgress(programsFullVh()), // the programs section filling the screen
       finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
       lenisStopped: () => getLenis()?.isStopped ?? null,
       tripActive,
-      briefingAt: briefingSharedProgress, // briefing progress f (0..1) -> shared progress
-      heroAt: (h) => toProgress(h * journey.heroVh), // hero progress (before the briefing) -> shared
+      heroAt: (h) => toProgress(h * journey.heroVh), // hero progress (0..1) -> shared
       // Tests only: scroll there AND set the scene there at once (skips the guided pace).
       jump: (p) => {
         const y = p * (document.documentElement.scrollHeight - window.innerHeight);

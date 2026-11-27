@@ -4,8 +4,8 @@
  * The HUD: a fixed, click-through frame over the whole story.
  *  - thin corner brackets
  *  - the logo mark top left (the opening comet lands here)
- *  - status top right: signal, then "Mission briefing", "Mission files" in the
- *    programs, "All squads: ..." in the finale
+ *  - status top right: signal, then "Mission files" in the programs,
+ *    "All squads: ..." in the finale
  *  - a slim progress line on the right edge, with one tick per part of the
  *    story (an ordered list for screen readers: "Programs, 2 of 3")
  *  - decorative coordinates bottom left (wide screens only), from scroll progress
@@ -22,13 +22,11 @@ import { brand } from "@/lib/theme";
 import { ease, duration, finale as FIN, pacing } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
-import { toVh, toProgress, whitenessAt, finaleProgress, partAt, onLayout, HERO_END, finaleStartVh } from "@/lib/journey";
-import { briefing as BRF, journey as J } from "@/lib/motion";
+import { toVh, toProgress, whitenessAt, finaleProgress, partAt, onLayout, PROGRAMS_AT, finaleStartVh } from "@/lib/journey";
 
 /** The parts of the story marked on the progress line, and where each starts (story vh). */
 const PARTS = [
-  { id: "briefing", label: LABELS.briefing, at: () => BRF.splitAt * J.heroVh },
-  { id: "programs", label: LABELS.programs, at: () => HERO_END },
+  { id: "programs", label: LABELS.programs, at: () => PROGRAMS_AT },
   { id: "finale", label: LABELS.finale, at: () => finaleStartVh() },
 ];
 
@@ -47,7 +45,6 @@ function statusAt(s) {
   const part = partAt(s);
   if (part === "finale") return finaleProgress(s) >= FIN.merge[1] ? hudStatus.online : hudStatus.inbound;
   if (part === "programs") return hudStatus.programs;
-  if (part === "briefing") return hudStatus.briefing;
   const t = storyStatus.transmission;
   return t === "waiting" || t === "typing" ? hudStatus.searching : hudStatus.detected;
 }
@@ -103,7 +100,7 @@ export default function Hud() {
 
       const part = partAt(s);
       // CSS: no sky readout over the program cards (from the moment the section starts sliding in).
-      const cards = String(part === "programs" || (part === "briefing" && s >= HERO_END - 100));
+      const cards = String(part === "programs");
       if (el.dataset.cards !== cards) el.dataset.cards = cards;
       const a = PARTS.findIndex((item) => item.id === part);
       if (a !== lastActive) {

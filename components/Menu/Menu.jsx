@@ -4,7 +4,7 @@
  * The menu: a fixed button top right (two lines that turn into an X) and a
  * full-screen overlay that opens as a circle growing out of the button.
  *
- * - Items are real links (#top, #briefing, #programs, #finale-title), so they work
+ * - Items are real links (#top, #programs, #finale-title), so they work
  *   without JavaScript and in static mode. With the live story, a tap closes
  *   the menu and travels there with Lenis: shared ease, duration from the
  *   distance (capped), passing through the journey. Targets come from the
@@ -28,9 +28,8 @@ import {
   toProgress,
   whitenessAt,
   partAt,
-  briefingSharedProgress,
   finaleSharedProgress,
-  HERO_END,
+  programsFullVh,
 } from "@/lib/journey";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -39,17 +38,10 @@ const pad = (n) => String(n).padStart(2, "0");
 const ITEMS = [
   { id: "home", label: copy.home, href: "#top", progress: () => 0, el: () => document.getElementById("top") },
   {
-    id: "briefing",
-    label: copy.briefing,
-    href: "#briefing",
-    progress: () => briefingSharedProgress(0.25), // the headline fully up
-    el: () => document.getElementById("briefing"),
-  },
-  {
     id: "programs",
     label: copy.programs,
     href: "#programs",
-    progress: () => toProgress(HERO_END + 100), // the section filling the screen
+    progress: () => toProgress(programsFullVh()), // the section filling the screen
     el: () => document.getElementById("programs"),
   },
   {

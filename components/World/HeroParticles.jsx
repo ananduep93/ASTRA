@@ -260,7 +260,7 @@ export default function HeroParticles({ count }) {
     const field = points.current;
     if (!field) return;
     const u = field.material.uniforms;
-    const p = heroProgress(toVh(scrollState.smooth)); // hero runs until the camera reaches Arts
+    const p = heroProgress(toVh(scrollState.smooth)); // 0..1 over the hero flight
     const tl = hero.timeline;
     const now = state.clock.elapsedTime;
     const it = intro.current;
