@@ -22,12 +22,12 @@ import { brand } from "@/lib/theme";
 import { ease, duration, finale as FIN, pacing } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
-import { toVh, toProgress, whitenessAt, finaleProgress, partAt, onLayout, PROGRAMS_AT, finaleStartVh } from "@/lib/journey";
+import { toVh, whitenessAt, finaleProgress, partAt, onLayout, pageStarts } from "@/lib/journey";
 
-/** The parts of the story marked on the progress line, and where each starts (story vh). */
+/** The parts of the page marked on the progress line, and where each starts (share of the page). */
 const PARTS = [
-  { id: "programs", label: LABELS.programs, at: () => PROGRAMS_AT },
-  { id: "finale", label: LABELS.finale, at: () => finaleStartVh() },
+  { id: "programs", label: LABELS.programs, at: () => pageStarts().programs },
+  { id: "finale", label: LABELS.finale, at: () => pageStarts().finale },
 ];
 
 const pad = (n, w = 2) => String(Math.floor(n)).padStart(w, "0");
@@ -64,7 +64,7 @@ export default function Hud() {
     let lastSync = -1;
 
     // Each part's tick sits where it starts on the progress line (moves when the programs section resizes).
-    const placeTicks = () => ticks.forEach((t, i) => t.style.setProperty("--at", String(toProgress(PARTS[i].at()))));
+    const placeTicks = () => ticks.forEach((t, i) => t.style.setProperty("--at", String(PARTS[i].at())));
     placeTicks();
     const offLayout = onLayout(placeTicks);
 
@@ -108,14 +108,14 @@ export default function Hud() {
         lastActive = a;
       }
 
-      const p = Math.round(scrollState.smooth * 1000) / 1000;
+      const p = Math.round(scrollState.progress * 1000) / 1000; // the page position (the scene holds in the programs)
       if (p !== lastFill) {
         lastFill = p;
         fill.style.transform = `scaleY(${p})`;
         rail.style.opacity = a >= 0 ? "1" : "0.5";
       }
-      // Syncing: how far the scene is behind the real scroll position.
-      const gap = Math.abs(scrollState.progress - scrollState.smooth);
+      // Syncing: how far the scene is behind where it belongs.
+      const gap = Math.abs(scrollState.target - scrollState.smooth);
       const g = gap < pacing.syncFrom ? 0 : Math.min(1, gap / pacing.syncFull);
       const gr = Math.round(g * 200) / 200;
       if (gr !== lastSync) {

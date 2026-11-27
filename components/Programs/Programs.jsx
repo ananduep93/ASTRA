@@ -26,7 +26,8 @@ import { useGSAP } from "@gsap/react";
 import { programs, SQUADS } from "@/data/programs";
 import { programsCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, programs as PGM, prefersReducedMotion } from "@/lib/motion";
-import { setLayout } from "@/lib/journey";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { setLayout, transitionDone } from "@/lib/journey";
 import { stateReveal } from "@/lib/reveal";
 import { openDetail } from "@/lib/detail";
 import Emblem from "@/components/Story/Emblem";
@@ -48,23 +49,29 @@ export default function Programs() {
   const shown = filter === "All" ? programs : programs.filter((p) => p.squad === filter);
   const shownIds = shown.map((p) => p.id);
 
-  /* Measure the section for the scroll map, now and whenever the page changes size. */
+  /*
+   * The section's boundaries for the scroll map (lib/journey.js), from a
+   * ScrollTrigger bound to this element: it starts when the top reaches the
+   * bottom of the screen (the star-iris ends there) and ends when the bottom
+   * reaches the bottom of the screen (the finale starts there). Refreshed on
+   * resize and whenever the section changes height.
+   */
   useEffect(() => {
     const el = root.current;
-    const measure = () => {
-      const vh = window.innerHeight;
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      const a = top - vh;
-      setLayout({ a, b: a + el.offsetHeight, limit: Math.max(1, document.documentElement.scrollHeight - vh), vh });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
+    const publish = (st) =>
+      setLayout({ a: st.start, b: st.end, limit: Math.max(1, ScrollTrigger.maxScroll(window)), vh: window.innerHeight });
+    const st = ScrollTrigger.create({ trigger: el, start: "top bottom", end: "bottom bottom", onRefresh: publish });
+    publish(st);
+    let lastH = el.offsetHeight;
+    const ro = new ResizeObserver(() => {
+      if (el.offsetHeight === lastH) return;
+      lastH = el.offsetHeight;
+      ScrollTrigger.refresh();
+    });
     ro.observe(el);
-    ro.observe(document.body);
-    window.addEventListener("resize", measure);
     return () => {
       ro.disconnect();
-      window.removeEventListener("resize", measure);
+      st.kill();
     };
   }, []);
 
@@ -107,13 +114,17 @@ export default function Programs() {
 
       const tick = () => {
         if (isStatic()) {
+          el.dataset.ready = "true";
           headR.snap(true);
           reveals.current.forEach(({ r }) => r.snap(true));
           return;
         }
         const vh = window.innerHeight;
-        // Real screen positions (not the paced scene): on screen = revealed.
-        headR.set(el.querySelector(".programs-head").getBoundingClientRect().top < vh * PGM.headAt);
+        // Nothing of the section shows before the star-iris has finished (the scene may
+        // still be catching up after a fast flick); then real screen positions decide.
+        const ready = transitionDone();
+        if (el.dataset.ready !== String(ready)) el.dataset.ready = String(ready);
+        headR.set(ready && el.querySelector(".programs-head").getBoundingClientRect().top < vh * PGM.headAt);
 
         // Cards: shown once their top is on screen (by the scene's position), a short stagger per column.
         const cols = Math.max(1, getComputedStyle(el.querySelector(".cards")).gridTemplateColumns.split(" ").length);
@@ -130,7 +141,7 @@ export default function Programs() {
             entry.wait = null;
             entry.afterFilter = true;
           }
-          const on = card.getBoundingClientRect().top < vh * PGM.revealAt;
+          const on = ready && card.getBoundingClientRect().top < vh * PGM.revealAt;
           if (!on) {
             entry.wait?.kill();
             entry.wait = null;

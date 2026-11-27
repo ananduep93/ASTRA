@@ -28,27 +28,33 @@ import {
   toProgress,
   whitenessAt,
   partAt,
-  finaleSharedProgress,
-  programsFullVh,
+  scrollAtStory,
+  programsScrollY,
+  HERO_END,
 } from "@/lib/journey";
+import { finale as FIN } from "@/lib/motion";
 
 const pad = (n) => String(n).padStart(2, "0");
 
-/** Menu entries: where each goes in the story (shared progress) and in the static page (element). */
+/**
+ * Menu entries: where each goes in the live story ({ y: page scroll px, scene:
+ * scene progress }, from the scroll map) and in the static page (element).
+ */
+const FINALE_AT = HERO_END + 0.9 * FIN.vh; // the logo formed, the call to action up
 const ITEMS = [
-  { id: "home", label: copy.home, href: "#top", progress: () => 0, el: () => document.getElementById("top") },
+  { id: "home", label: copy.home, href: "#top", go: () => ({ y: 0, scene: 0 }), el: () => document.getElementById("top") },
   {
     id: "programs",
     label: copy.programs,
     href: "#programs",
-    progress: () => toProgress(programsFullVh()), // the section filling the screen
+    go: () => ({ y: programsScrollY(), scene: toProgress(HERO_END) }), // the section filling the screen, the scene at the hold
     el: () => document.getElementById("programs"),
   },
   {
     id: "finale",
     label: copy.finale,
     href: "#finale-title",
-    progress: () => finaleSharedProgress(0.9),
+    go: () => ({ y: scrollAtStory(FINALE_AT), scene: toProgress(FINALE_AT) }),
     el: () => document.querySelector(".finale"),
   },
 ];
@@ -61,23 +67,24 @@ function currentItem() {
 
 /** Scroll to an item: through the story (live) or to its section (static). */
 function travelTo(item) {
-  const html = document.documentElement;
-  const max = html.scrollHeight - window.innerHeight;
-  const live = html.dataset.world === "live";
+  const live = document.documentElement.dataset.world === "live";
   const el = item.el();
-  const y = live ? item.progress() * max : el ? el.getBoundingClientRect().top + window.scrollY : 0;
+  const goal = live ? item.go() : null;
+  const y = goal ? goal.y : el ? el.getBoundingClientRect().top + window.scrollY : 0;
   const lenis = getLenis();
   if (!lenis || prefersReducedMotion()) {
     window.scrollTo(0, y); // reduced motion: instant
     return;
   }
-  const fromVh = toVh(scrollState.smooth); // from where the scene is
-  const toVhTarget = toVh(live ? item.progress() : y / Math.max(1, max));
-  const duration = tripDuration(toVhTarget - fromVh);
+  const toScene = goal ? goal.scene : scrollState.smooth;
+  // Trip length from the story distance, plus the programs section when the trip crosses it.
+  const crosses = (scrollState.smooth <= toProgress(HERO_END)) !== (toScene <= toProgress(HERO_END));
+  const distanceVh = toVh(toScene) - toVh(scrollState.smooth);
+  const duration = tripDuration(Math.abs(distanceVh) + (crosses ? 100 : 0));
   const easing = gsap.parseEase(ease.inOut); // the shared ease, as a function
   // The page scrolls there, and the scene plays the same eased trip (faster than the
   // normal pace, for this move only), so it feels like travelling, not teleporting.
-  startTrip(Math.min(1, Math.max(0, y / Math.max(1, max))), duration, easing);
+  startTrip(toScene, duration, easing);
   lenis.scrollTo(y, { duration, easing, force: true });
 }
 

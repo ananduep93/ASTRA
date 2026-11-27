@@ -23,16 +23,18 @@ import { scrollState, getLenis, tripActive, snapSmooth } from "@/lib/scrollStore
 import { TIERS } from "@/lib/quality";
 import {
   toVh,
-  toProgress,
   toneAt,
   cameraAt,
   partAt,
   CAMERA_POINTS,
   totalVh,
-  programsFullVh,
+  HERO_END,
+  STORY_VH,
+  scrollAtStory,
+  programsScrollY,
   finaleProgress,
-  finaleSharedProgress,
 } from "@/lib/journey";
+import { finale as FIN } from "@/lib/motion";
 import { storyStatus } from "@/lib/storyStatus";
 import { detailState } from "@/lib/detail";
 import HeroParticles from "./HeroParticles";
@@ -149,6 +151,8 @@ function Backdrop() {
  * Only with ?debug=1: exposes draw calls etc. on window.__astraDebug, and the
  * renderer on window.__astraRender so tests can time a real render.
  */
+const pageMax = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+
 function DebugStats({ tier, count }) {
   const { gl, scene, camera } = useThree();
   useEffect(() => {
@@ -156,11 +160,14 @@ function DebugStats({ tier, count }) {
     // Scroll map for tests.
     window.__astraJourney = {
       totalVh,
-      programsAt: () => toProgress(programsFullVh()), // the programs section filling the screen
-      finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
+      // Page positions (0..1 of the page, for jump) of story points:
+      programsAt: () => programsScrollY() / pageMax(), // the programs section filling the screen
+      finaleAt: (f) => scrollAtStory(HERO_END + f * FIN.vh) / pageMax(), // finale progress f (0..1)
       lenisStopped: () => getLenis()?.isStopped ?? null,
       tripActive,
-      heroAt: (h) => toProgress(h * journey.heroVh), // hero progress (0..1) -> shared
+      heroAt: (h) => scrollAtStory(h * journey.heroVh) / pageMax(), // hero progress h (0..1)
+      sceneVh: () => toVh(scrollState.smooth), // where the scene is (story vh)
+      storyVh: STORY_VH,
       // Tests only: scroll there AND set the scene there at once (skips the guided pace).
       jump: (p) => {
         const y = p * (document.documentElement.scrollHeight - window.innerHeight);

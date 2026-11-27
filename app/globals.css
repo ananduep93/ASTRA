@@ -517,6 +517,17 @@ html[data-world="live"] .hero-title-wrap {
   margin: 0 calc(-1 * (var(--astra-space-gutter) + 18px)) 0 calc(-1 * var(--astra-space-gutter));
   background: var(--astra-offwhite);
 }
+/* Until the star-iris has finished (the scene may still be catching up after a fast
+   flick) the section is see-through and empty: the transition stays visible behind it.
+   Once done, the canvas is the same off-white, so the switch cannot be seen. */
+.programs[data-ready="false"],
+.programs[data-ready="false"] .programs-cover,
+.programs[data-ready="false"] .chips {
+  background: transparent;
+}
+.programs[data-ready="false"] .chips {
+  visibility: hidden;
+}
 .shape-defs {
   position: absolute;
   width: 0;

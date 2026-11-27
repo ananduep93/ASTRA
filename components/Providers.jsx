@@ -14,7 +14,7 @@ import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { scrollConfig, scrollSmoothing, touchScroll, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
-import { paceCap } from "@/lib/journey";
+import { sceneGoal } from "@/lib/journey";
 import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
@@ -40,7 +40,7 @@ export default function Providers({ children }) {
       lenis.on("scroll", ScrollTrigger.update);
       writeScroll(lenis.animatedScroll, lenis.limit, 0);
 
-      // Guided pace: the scene follows the real scroll, capped at pacing.maxVhPerSecond (story vh, see paceCap)
+      // Guided pace: the scene follows its goal (lib/journey.js sceneGoal: paced hero and finale, a hold in the programs)
       // (wheel and touch alike). Touch keeps its slightly calmer damping.
       const touch = window.matchMedia(TOUCH_QUERY);
       const tick = (time, deltaMs) => {
@@ -48,7 +48,7 @@ export default function Providers({ children }) {
         // Read every frame (not only on scroll) so a page-height change is picked up too.
         writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
         const dt = Math.min(deltaMs / 1000, scrollSmoothing.maxDelta);
-        stepSmooth(dt, touch.matches ? touchScroll.damping : scrollSmoothing.damping, paceCap());
+        stepSmooth(dt, touch.matches ? touchScroll.damping : scrollSmoothing.damping, sceneGoal());
       };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and
       // DOM read this frame's scroll value, not last frame's.
@@ -74,7 +74,8 @@ export default function Providers({ children }) {
       // Reduced motion: no glide and no pacing, the scene just equals the real scroll.
       const tick = () => {
         read();
-        stepSmooth(1, 1e6);
+        const goal = sceneGoal();
+        stepSmooth(1, 1e6, goal && { target: goal.target, cap: Infinity });
       };
       gsap.ticker.add(tick, false, true);
       return () => {

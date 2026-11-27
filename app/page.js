@@ -1,7 +1,7 @@
 // One continuous scroll: stars form ASTRA 2027, a transmission goes out, the
-// camera flies through the letters, the star-iris turns the world white as the
-// programs section (a normal page section) rises, then the finale, where the
-// dots gather into the logo. The 3D canvas behind is fixed; this page provides the
+// camera flies through the letters, the star-iris turns the world white, the
+// programs section (a normal page section) follows while the scene holds, then
+// the finale, where the dots gather into the logo. The 3D canvas behind is fixed; this page provides the
 // real text, the buttons and the scroll length.
 import HeroTitle from "@/components/Hero/HeroTitle";
 import Transmission from "@/components/Story/Transmission";
@@ -11,7 +11,7 @@ import Finale from "@/components/Story/Finale";
 import Hud from "@/components/HUD/Hud";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
 import Menu from "@/components/Menu/Menu";
-import { PROGRAMS_AT } from "@/lib/journey";
+import { HERO_END } from "@/lib/journey";
 import { finale as FIN, touchScroll } from "@/lib/motion";
 
 /** Scroll room for a fixed part of the story (removed in static mode). Touch screens get more (CSS, no reload jump). */
@@ -31,7 +31,7 @@ export default function Home() {
       <main>
         <HeroTitle />
         <Transmission />
-        <Spacer vh={PROGRAMS_AT} />
+        <Spacer vh={HERO_END} />
         <Programs />
         <Spacer vh={FIN.vh} />
         <Finale />
