@@ -2,52 +2,197 @@
 
 /**
  * PROGRAMS: right after the star-iris, a normal page section (it scrolls like
- * any page). Every reveal follows the REAL scroll position, never the paced
- * scene, so the section is complete and clickable the moment it is on screen.
- *  - a kinetic header (SplitText lines, state-based reveal: never half-clipped)
- *    and one short line about the fest under it
- *  - squad filter chips (All + five squads), stuck below the HUD while the
- *    section is on screen
- *  - a grid of poster cards for all 15 programs (1 / 2 / 3 columns), the first
- *    card of each filter wide. Each card is a real button: static halftone
- *    shape, number "03 / 15", name, squad badge. It opens the program detail.
- *  - cards wipe in (clip-path + transform) with a stagger as they come on
- *    screen; a filter change moves the cards with GSAP Flip and re-staggers
- *    the ones that enter.
- * It also measures itself for the scroll map (lib/journey.js setLayout), so the
- * fixed hero / finale layers line up with real scrolling.
- * The grid is a list of buttons: the accessible list of every program.
+ * any page; the canvas holds white behind it, see lib/journey.js).
+ *  - a kinetic header (SplitText lines, state-based reveal) and one short line
+ *  - five rows, one per squad (Arts, Tech, Gaming, Business, Fun): a row header
+ *    (emblem, squad, "6 programs", arrow buttons) and a horizontal RAIL of
+ *    poster cards with progress dots under it.
+ *
+ * Rails: native horizontal overflow with CSS scroll-snap (centre). Touch swipes
+ * natively; the mouse can drag; arrow buttons and the left / right keys step
+ * one card. Vertical scrolling is never taken over: a vertical wheel or swipe
+ * over a rail still scrolls the page (touch-action: pan-x pan-y; Lenis skips
+ * only horizontal gestures over a rail: data-lenis-prevent-horizontal).
+ * The card nearest the centre is full size, the others smaller and dimmer, and
+ * each shape drifts a little with the rail (transform + opacity, one rAF).
+ *
+ * Every reveal is state-based (never resting half-clipped) and waits for the
+ * star-iris to finish (transitionDone), then follows real screen positions.
+ * Each card is a real button: it opens the program detail (prev / next stay
+ * within its squad). The section also publishes its scroll boundaries
+ * (a ScrollTrigger on this element) for the scroll map.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { Flip } from "gsap/Flip";
 import { SplitText } from "gsap/SplitText";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { programs, SQUADS } from "@/data/programs";
+import { programs, SQUADS, programsBySquad } from "@/data/programs";
 import { programsCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, programs as PGM, prefersReducedMotion } from "@/lib/motion";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { setLayout, transitionDone } from "@/lib/journey";
 import { stateReveal } from "@/lib/reveal";
 import { openDetail } from "@/lib/detail";
+import { numberOf, TOTAL } from "@/lib/programOrder";
 import Emblem from "@/components/Story/Emblem";
 import ShapeArt, { ShapeDefs } from "./ShapeArt";
 
-if (typeof window !== "undefined") gsap.registerPlugin(Flip);
-
-const FILTERS = ["All", ...SQUADS];
 const pad = (n) => String(n).padStart(2, "0");
 const isStatic = () => document.documentElement.dataset.world === "static";
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+const ROWS = SQUADS.map((squad) => ({ squad, items: programsBySquad(squad) }));
+
+/* ------------------------------------------------------------------ rails */
+
+/** Index of the card whose centre is nearest the rail's centre. */
+function centreIndex(rail) {
+  const mid = rail.scrollLeft + rail.clientWidth / 2;
+  let best = 0;
+  let bestD = Infinity;
+  [...rail.children].forEach((cell, i) => {
+    const d = Math.abs(cell.offsetLeft + cell.offsetWidth / 2 - mid);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** Scroll a rail so card `i` sits in the centre. */
+function goTo(rail, i, smooth = true) {
+  const cells = rail.children;
+  const cell = cells[clamp(i, 0, cells.length - 1)];
+  if (!cell) return;
+  const left = cell.offsetLeft + cell.offsetWidth / 2 - rail.clientWidth / 2;
+  rail.scrollTo({ left, behavior: smooth && !prefersReducedMotion() ? "smooth" : "auto" });
+}
+
+/**
+ * One rail's live behaviour: centre scale + parallax, dots, arrow states,
+ * mouse drag (touch stays native). Returns a cleanup function.
+ */
+function wireRail(row) {
+  const rail = row.querySelector(".rail");
+  const cells = [...rail.children];
+  const cards = cells.map((c) => c.querySelector(".card"));
+  const arts = cells.map((c) => c.querySelector(".card-art"));
+  const dots = [...row.querySelectorAll(".rail-dot")];
+  const [prevBtn, nextBtn] = row.querySelectorAll(".rail-arrow");
+  const reduced = prefersReducedMotion() || isStatic();
+  let frame = 0;
+  let active = -1;
+
+  const update = () => {
+    frame = 0;
+    const mid = rail.scrollLeft + rail.clientWidth / 2;
+    const step = cells.length > 1 ? cells[1].offsetLeft - cells[0].offsetLeft : rail.clientWidth;
+    cells.forEach((cell, i) => {
+      const d = (cell.offsetLeft + cell.offsetWidth / 2 - mid) / Math.max(1, step); // cards from the centre
+      const t = Math.min(1, Math.abs(d));
+      if (!reduced) {
+        cards[i].style.transform = `scale(${1 - PGM.sideScale * t})`;
+        arts[i].style.transform = `translate3d(${clamp(-d, -1.5, 1.5) * PGM.parallax}%, 0, 0)`;
+      }
+      cards[i].style.opacity = String(1 - (1 - PGM.sideOpacity) * t);
+    });
+    const i = centreIndex(rail);
+    if (i !== active) {
+      active = i;
+      dots.forEach((d, k) => (k === i ? d.setAttribute("data-on", "") : d.removeAttribute("data-on")));
+    }
+    const max = rail.scrollWidth - rail.clientWidth - 2;
+    prevBtn.disabled = rail.scrollLeft <= 2;
+    nextBtn.disabled = rail.scrollLeft >= max;
+  };
+  const queue = () => {
+    if (!frame) frame = requestAnimationFrame(update);
+  };
+
+  // Mouse drag (touch and pen scroll natively). Snapping is paused while dragging,
+  // then the nearest card settles in the centre. A drag never counts as a click.
+  let drag = null;
+  let dragged = false;
+  const onDown = (e) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    drag = { x: e.clientX, left: rail.scrollLeft, id: e.pointerId };
+    dragged = false;
+  };
+  const onMove = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x;
+    if (!dragged && Math.abs(dx) < 6) return;
+    if (!dragged) {
+      dragged = true;
+      rail.setPointerCapture(drag.id);
+      rail.dataset.dragging = "";
+    }
+    rail.scrollLeft = drag.left - dx;
+  };
+  const onUp = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    if (!dragged) return;
+    delete rail.dataset.dragging;
+    goTo(rail, centreIndex(rail));
+  };
+  const onClick = (e) => {
+    if (dragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragged = false;
+    }
+  };
+  // Keyboard: left / right step to the neighbouring card (and focus it).
+  const onKey = (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const from = cards.indexOf(document.activeElement);
+    const i = clamp((from >= 0 ? from : centreIndex(rail)) + (e.key === "ArrowRight" ? 1 : -1), 0, cards.length - 1);
+    e.preventDefault();
+    cards[i].focus({ preventScroll: true });
+    goTo(rail, i);
+  };
+  // Tabbing onto a card brings it to the centre.
+  const onFocus = (e) => {
+    const i = cards.indexOf(e.target);
+    if (i >= 0 && i !== centreIndex(rail)) goTo(rail, i);
+  };
+  const onPrev = () => goTo(rail, centreIndex(rail) - 1);
+  const onNext = () => goTo(rail, centreIndex(rail) + 1);
+
+  rail.addEventListener("scroll", queue, { passive: true });
+  rail.addEventListener("pointerdown", onDown);
+  rail.addEventListener("pointermove", onMove);
+  rail.addEventListener("pointerup", onUp);
+  rail.addEventListener("pointercancel", onUp);
+  rail.addEventListener("click", onClick, true);
+  rail.addEventListener("keydown", onKey);
+  rail.addEventListener("focusin", onFocus);
+  prevBtn.addEventListener("click", onPrev);
+  nextBtn.addEventListener("click", onNext);
+  window.addEventListener("resize", queue);
+  update();
+  return () => {
+    cancelAnimationFrame(frame);
+    rail.removeEventListener("scroll", queue);
+    rail.removeEventListener("pointerdown", onDown);
+    rail.removeEventListener("pointermove", onMove);
+    rail.removeEventListener("pointerup", onUp);
+    rail.removeEventListener("pointercancel", onUp);
+    rail.removeEventListener("click", onClick, true);
+    rail.removeEventListener("keydown", onKey);
+    rail.removeEventListener("focusin", onFocus);
+    prevBtn.removeEventListener("click", onPrev);
+    nextBtn.removeEventListener("click", onNext);
+    window.removeEventListener("resize", queue);
+  };
+}
+
+/* ---------------------------------------------------------------- section */
 
 export default function Programs() {
   const root = useRef(null);
-  const [filter, setFilter] = useState("All");
-  const flip = useRef(null); // Flip state captured just before a filter change
-  const reveals = useRef(new Map()); // program id -> state reveal of its card
-  const fresh = useRef(new Set()); // ids that just became visible: re-stagger them
-
-  const shown = filter === "All" ? programs : programs.filter((p) => p.squad === filter);
-  const shownIds = shown.map((p) => p.id);
 
   /*
    * The section's boundaries for the scroll map (lib/journey.js), from a
@@ -75,7 +220,13 @@ export default function Programs() {
     };
   }, []);
 
-  /* Header + card reveals, driven by the shared scene progress. */
+  /* Rails: centre scale, parallax, dots, arrows, drag, keys. */
+  useEffect(() => {
+    const offs = [...root.current.querySelectorAll(".rail-row")].map(wireRail);
+    return () => offs.forEach((off) => off());
+  }, []);
+
+  /* Header + row reveals: state-based, after the star-iris, from real screen positions. */
   useGSAP(
     () => {
       const el = root.current;
@@ -89,34 +240,41 @@ export default function Programs() {
         onSplit(self) {
           const tl = gsap.timeline({ paused: true });
           tl.from(el.querySelector(".programs-label"), { opacity: 0, yPercent: 40, duration: duration.base, ease: ease.out });
-          tl.from(self.lines, { yPercent: 110, duration: duration.slow, ease: ease.expo, stagger: stagger.loose }, 0.1);
+          if (reduced) tl.from(self.lines, { opacity: 0, duration: duration.base, ease: ease.out }, 0.1);
+          else tl.from(self.lines, { yPercent: 110, duration: duration.slow, ease: ease.expo, stagger: stagger.loose }, 0.1);
           tl.from(el.querySelector(".programs-sub"), { opacity: 0, yPercent: 40, duration: duration.base, ease: ease.out }, 0.3);
-          tl.from(el.querySelectorAll(".chip"), { opacity: 0, yPercent: 30, duration: duration.base, ease: ease.out, stagger: stagger.tight }, 0.35);
           tl.progress(headR.target);
           headTl = tl;
           return tl;
         },
       });
 
-      // One reveal timeline per card: a wipe up through a clip-path, the card rising a little.
-      const cards = [...el.querySelectorAll(".card")];
-      cards.forEach((card) => {
+      // One reveal per row: its header rises, the cards wipe up in turn, then the dots.
+      const rows = [...el.querySelectorAll(".rail-row")].map((row) => {
         const tl = gsap.timeline({ paused: true });
-        if (reduced) tl.fromTo(card, { opacity: 0 }, { opacity: 1, duration: duration.base, ease: ease.out });
-        else
+        const head = row.querySelector(".rail-head");
+        const cells = row.querySelectorAll(".rail-cell");
+        const dots = row.querySelector(".rail-dots");
+        if (reduced) {
+          tl.from([head, ...cells, dots], { opacity: 0, duration: duration.base, ease: ease.out });
+        } else {
+          tl.from(head, { opacity: 0, yPercent: 30, duration: duration.base, ease: ease.out });
           tl.fromTo(
-            card,
+            cells,
             { clipPath: "inset(100% 0% 0% 0%)", yPercent: 8 },
-            { clipPath: "inset(0% 0% 0% 0%)", yPercent: 0, duration: duration.slow, ease: ease.expo, clearProps: "clipPath" }
+            { clipPath: "inset(0% 0% 0% 0%)", yPercent: 0, duration: duration.slow, ease: ease.expo, stagger: PGM.cardStagger },
+            duration.fast
           );
-        reveals.current.set(card.dataset.id, { r: stateReveal(() => tl), card });
+          tl.from(dots, { opacity: 0, duration: duration.base, ease: ease.out }, "<0.2");
+        }
+        return { row, r: stateReveal(() => tl) };
       });
 
       const tick = () => {
         if (isStatic()) {
           el.dataset.ready = "true";
           headR.snap(true);
-          reveals.current.forEach(({ r }) => r.snap(true));
+          rows.forEach(({ r }) => r.snap(true));
           return;
         }
         const vh = window.innerHeight;
@@ -125,38 +283,7 @@ export default function Programs() {
         const ready = transitionDone();
         if (el.dataset.ready !== String(ready)) el.dataset.ready = String(ready);
         headR.set(ready && el.querySelector(".programs-head").getBoundingClientRect().top < vh * PGM.headAt);
-
-        // Cards: shown once their top is on screen (by the scene's position), a short stagger per column.
-        const cols = Math.max(1, getComputedStyle(el.querySelector(".cards")).gridTemplateColumns.split(" ").length);
-        let k = 0;
-        reveals.current.forEach((entry, id) => {
-          const { r, card } = entry;
-          if (card.parentElement.hidden) return;
-          const col = k % cols;
-          const row = Math.floor(k / cols);
-          k++;
-          if (fresh.current.has(id)) {
-            fresh.current.delete(id);
-            r.snap(false); // entering after a filter change: start hidden, then stagger in
-            entry.wait = null;
-            entry.afterFilter = true;
-          }
-          const on = ready && card.getBoundingClientRect().top < vh * PGM.revealAt;
-          if (!on) {
-            entry.wait?.kill();
-            entry.wait = null;
-            r.set(false);
-            return;
-          }
-          if (r.target === 1 || entry.wait) return; // shown, or its turn in the stagger is coming
-          // Its turn: one step per column (and per row after a filter change).
-          const delay = col * PGM.cardStagger + (entry.afterFilter ? row * PGM.filterStagger : 0);
-          entry.afterFilter = false;
-          entry.wait = gsap.delayedCall(delay, () => {
-            entry.wait = null;
-            r.set(true);
-          });
-        });
+        rows.forEach(({ row, r }) => r.set(ready && row.getBoundingClientRect().top < vh * PGM.revealAt));
       };
       gsap.ticker.add(tick);
       return () => {
@@ -166,29 +293,6 @@ export default function Programs() {
     },
     { scope: root }
   );
-
-  /* Filter change: Flip the cards that stay, re-stagger the ones that enter. */
-  const choose = (next) => {
-    if (next === filter) return;
-    flip.current = Flip.getState(root.current.querySelectorAll(".card-cell"));
-    const before = new Set(shownIds);
-    const after = next === "All" ? programs : programs.filter((p) => p.squad === next);
-    fresh.current = new Set(after.map((p) => p.id).filter((id) => !before.has(id)));
-    setFilter(next);
-  };
-
-  useLayoutEffect(() => {
-    if (!flip.current) return;
-    const state = flip.current;
-    flip.current = null;
-    if (prefersReducedMotion()) return;
-    Flip.from(state, {
-      duration: duration.base,
-      ease: ease.inOut,
-      absolute: true,
-      targets: root.current.querySelectorAll(".card-cell:not([hidden])"),
-    });
-  }, [filter]);
 
   return (
     <section id="programs" ref={root} className="programs" aria-labelledby="programs-title">
@@ -209,58 +313,71 @@ export default function Programs() {
         <p className="programs-sub">{COPY.subline}</p>
       </header>
 
-      <div className="chips" role="group" aria-label={COPY.filterLabel}>
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className="chip"
-            aria-pressed={filter === f}
-            style={f === "All" ? undefined : { "--squad": `var(--squad-${f})` }}
-            onClick={() => choose(f)}
+      {ROWS.map(({ squad, items }) => {
+        const ids = items.map((p) => p.id);
+        return (
+          <section
+            key={squad}
+            className="rail-row"
+            aria-labelledby={`rail-${squad}`}
+            style={{ "--squad": `var(--squad-${squad})` }}
           >
-            {f !== "All" && <span className="chip-mark" aria-hidden="true" />}
-            {f === "All" ? COPY.all : f}
-          </button>
-        ))}
-      </div>
+            <header className="rail-head">
+              <span className="badge rail-badge">
+                <Emblem squad={squad} />
+              </span>
+              <h3 id={`rail-${squad}`} className="rail-title">
+                {COPY.squadTitle(squad)}
+              </h3>
+              <p className="rail-count">{COPY.count(items.length)}</p>
+              <div className="rail-arrows">
+                <button type="button" className="rail-arrow" aria-label={COPY.prev(squad)}>
+                  <span aria-hidden="true">←</span>
+                </button>
+                <button type="button" className="rail-arrow" aria-label={COPY.next(squad)}>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </header>
 
-      <ul className="cards">
-        {programs.map((p, k) => {
-          const visible = shownIds.includes(p.id);
-          return (
-            <li
-              key={p.id}
-              className="card-cell"
-              hidden={!visible}
-              data-flip-id={p.id}
-              data-featured={visible && shownIds[0] === p.id ? "" : undefined}
-            >
-              <button
-                type="button"
-                className="card"
-                data-id={p.id}
-                aria-haspopup="dialog"
-                aria-label={`${p.name}, ${p.squad} squad, mission ${k + 1} of ${programs.length}. ${COPY.open}`}
-                style={{ "--squad": `var(--squad-${p.squad})` }}
-                onClick={(e) => openDetail(p.id, shownIds, e.currentTarget)}
-              >
-                <span className="card-num">
-                  {pad(k + 1)} / {pad(programs.length)}
-                </span>
-                <ShapeArt programId={p.id} className="card-art" />
-                <span className="card-name">{p.name}</span>
-                <span className="card-squad">
-                  <span className="badge">
-                    <Emblem squad={p.squad} />
-                  </span>
-                  {p.squad} squad
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+            <ul className="rail" aria-label={COPY.railLabel(squad)} data-lenis-prevent-horizontal="">
+              {items.map((p) => (
+                <li key={p.id} className="rail-cell">
+                  <button
+                    type="button"
+                    className="card"
+                    data-id={p.id}
+                    aria-haspopup="dialog"
+                    aria-label={`${p.name}, ${p.squad} squad, mission ${numberOf(p.id)} of ${TOTAL}. ${COPY.open}`}
+                    style={{ "--squad": `var(--squad-${p.squad})` }}
+                    onClick={(e) => openDetail(p.id, ids, e.currentTarget)}
+                  >
+                    <span className="card-num">
+                      {pad(numberOf(p.id))} / {pad(TOTAL)}
+                    </span>
+                    <span className="card-frame">
+                      <ShapeArt programId={p.id} className="card-art" />
+                    </span>
+                    <span className="card-name">{p.name}</span>
+                    <span className="card-squad">
+                      <span className="badge">
+                        <Emblem squad={p.squad} />
+                      </span>
+                      {p.squad} squad
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="rail-dots" aria-hidden="true">
+              {items.map((p) => (
+                <span key={p.id} className="rail-dot" />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </section>
   );
 }

@@ -522,11 +522,8 @@ html[data-world="live"] .hero-title-wrap {
    Once done, the canvas is the same off-white, so the switch cannot be seen. */
 .programs[data-ready="false"],
 .programs[data-ready="false"] .programs-cover,
-.programs[data-ready="false"] .chips {
+.programs[data-ready="false"] .card {
   background: transparent;
-}
-.programs[data-ready="false"] .chips {
-  visibility: hidden;
 }
 .shape-defs {
   position: absolute;
@@ -567,90 +564,151 @@ html[data-world="live"] .hero-title-wrap {
   line-height: 1.45;
 }
 
-/* Filter chips: stuck below the HUD while the section is on screen. */
-.chips {
-  position: sticky;
-  top: calc(var(--hud-clear) + var(--astra-space-md) - 8px); /* right under the cover strip */
-  z-index: 2;
+/* Squad rows: a header and a horizontal rail of poster cards each. */
+.programs {
+  --gl: var(--astra-space-gutter); /* the section's left padding... */
+  --gr: calc(var(--astra-space-gutter) + 18px); /* ...and right padding (room for the HUD rail) */
+  --card-w: 78vw; /* phones: the next card peeks in */
+  --rail-gap: 14px;
+}
+@media (min-width: 640px) {
+  .programs {
+    --card-w: 360px;
+    --rail-gap: 24px;
+  }
+}
+.rail-row {
+  margin-top: var(--astra-space-2xl);
+}
+.rail-row:first-of-type {
+  margin-top: var(--astra-space-xl);
+}
+.rail-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: var(--astra-space-md) 0 var(--astra-space-md);
-  padding: 8px 0;
-  background: var(--astra-offwhite);
-}
-/* Phones: one row that swipes sideways (the page itself never scrolls sideways),
-   so the stuck bar stays short. */
-@media (max-width: 639px) {
-  .chips {
-    flex-wrap: nowrap;
-    margin-right: calc(-1 * (var(--astra-space-gutter) + 18px));
-    margin-left: -4px; /* room for the focus ring of the first chip */
-    padding-right: var(--astra-space-gutter);
-    padding-left: 4px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-  .chips::-webkit-scrollbar {
-    display: none;
-  }
-  .chip {
-    flex: none;
-  }
-}
-.chip {
-  display: inline-flex;
-  min-height: 44px;
   align-items: center;
+  gap: 12px;
+}
+.rail-badge {
+  width: 34px;
+  height: 34px;
+}
+.rail-badge .emblem {
+  width: 24px;
+  height: 24px;
+}
+.rail-title {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h3);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+}
+.rail-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.rail-arrows {
+  display: flex;
   gap: 8px;
-  padding: 0 14px;
+  margin-left: auto;
+}
+.rail-arrow {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
   border: 1px solid var(--astra-black);
   border-radius: 2px;
   background: transparent;
   color: var(--astra-black);
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 1.125rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-/* The squad accent sits on ink (a small mark), never behind text. */
-.chip-mark {
-  width: 10px;
-  height: 10px;
-  flex: none;
-  border: 2px solid var(--astra-black);
-  background: var(--squad, var(--astra-red));
+.rail-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
-.chip[aria-pressed="true"] {
-  background: var(--astra-black);
-  color: var(--astra-white);
+/* Phones swipe; the arrow buttons are for mouse and keyboard screens. */
+@media (max-width: 639px) {
+  .rail-arrows {
+    display: none;
+  }
 }
-.chip[aria-pressed="true"] .chip-mark {
+/* The rail bleeds to both screen edges; side padding lets the first and last card reach the centre. */
+.rail {
+  display: flex;
+  gap: var(--rail-gap);
+  margin: var(--astra-space-md) calc(-1 * var(--gr)) 0 calc(-1 * var(--gl));
+  padding: 10px calc((100% + var(--gl) + var(--gr) - var(--card-w)) / 2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  list-style: none;
+  overscroll-behavior-x: contain; /* a swipe at the end never turns into a browser back gesture */
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y; /* horizontal moves the rail, vertical scrolls the page */
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+@media (pointer: fine) {
+  .rail {
+    cursor: grab;
+  }
+}
+/* lenis.css gives every [data-lenis-prevent-*] element `overscroll-behavior: contain`
+   on BOTH axes, which would stop a vertical swipe over a rail from scrolling the page.
+   Rails contain only sideways (no back-swipe at the ends); vertical always reaches the page. */
+.lenis .rail[data-lenis-prevent-horizontal] {
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+}
+.rail[data-dragging] {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+.rail-cell {
+  flex: 0 0 var(--card-w);
+  scroll-snap-align: center;
+}
+.rail-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: var(--astra-space-sm);
+}
+.rail-dot {
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--astra-black);
+  border-radius: 50%;
+  transition: transform var(--astra-dur-fast) var(--astra-ease-out);
+}
+.rail-dot[data-on] {
   border-color: var(--squad, var(--astra-red));
+  background: var(--squad, var(--astra-red));
+  transform: scale(1.45);
 }
-.chip:focus-visible,
-.card:focus-visible {
+.card:focus-visible,
+.rail-arrow:focus-visible {
   outline: 2px solid var(--astra-red);
   outline-offset: 2px;
 }
 
-/* Poster cards: 1 / 2 / 3 columns; the first card of each filter is wide. */
-.cards {
-  display: grid;
-  gap: var(--astra-space-sm);
-  list-style: none;
-}
+/* Poster cards: number, the halftone shape, the name, the squad badge. */
 .card {
   display: grid;
   width: 100%;
   min-height: 44px;
-  grid-template-rows: auto 1fr auto auto;
-  gap: 10px;
-  padding: 14px;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--astra-black);
   border-radius: 2px;
   background: var(--astra-offwhite);
@@ -658,6 +716,8 @@ html[data-world="live"] .hero-title-wrap {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
   -webkit-tap-highlight-color: transparent;
 }
 .card-num {
@@ -665,13 +725,19 @@ html[data-world="live"] .hero-title-wrap {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
 }
+.card-frame {
+  display: block;
+  overflow: hidden; /* the shape drifts inside */
+}
 .card-art {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   color: var(--astra-black);
+  will-change: transform;
 }
 .card-name {
+  align-self: end;
   font-family: var(--astra-font-display);
   font-size: var(--astra-text-h3);
   font-weight: 800;
@@ -702,36 +768,6 @@ html[data-world="live"] .hero-title-wrap {
   width: 18px;
   height: 18px;
   fill: var(--squad, var(--astra-red));
-}
-.card-cell[data-featured] .card-art {
-  aspect-ratio: 16 / 9;
-}
-@media (min-width: 640px) {
-  .cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .card-cell[data-featured] {
-    grid-column: span 2;
-  }
-  .card-cell[data-featured] .card {
-    grid-template-columns: 1.3fr 1fr;
-    grid-template-rows: auto 1fr auto;
-    column-gap: var(--astra-space-md);
-  }
-  .card-cell[data-featured] .card-art {
-    grid-row: 1 / span 3;
-    grid-column: 1;
-    aspect-ratio: 4 / 3;
-  }
-  .card-cell[data-featured] .card-name {
-    align-self: end;
-    font-size: var(--astra-text-h2);
-  }
-}
-@media (min-width: 1024px) {
-  .cards {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 /* ---------------------------------------------------------------- detail */

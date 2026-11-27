@@ -9,9 +9,9 @@
  * line by line (state-based), the details show TBA, Register says "Opens soon".
  *
  *  - Previous / next buttons, arrow keys and a horizontal swipe move through
- *    the programs of the current filter (the shape morphs straight across).
- *  - Close: the X, Escape, or the browser Back button. The panel shrinks back
- *    onto its card; the grid is exactly where it was; focus returns to the card.
+ *    the programs of the same squad (the shape morphs straight across).
+ *  - Close: the X, Escape, or the browser Back button. Its rail brings the card
+ *    to the centre, the panel shrinks back onto it, and focus returns to it.
  *  - While open: Lenis paused, page scroll locked, the page behind is inert,
  *    Tab stays inside.
  *  - Hash routing: #programs/photography opens it (also on reload), #programs
@@ -29,6 +29,7 @@ import { detailCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, detail as DET, prefersReducedMotion } from "@/lib/motion";
 import { getLenis, startTrip } from "@/lib/scrollStore";
 import { DETAIL_EVENT, showDetailShape, hideDetailShape } from "@/lib/detail";
+import { numberOf, squadIdsOf } from "@/lib/programOrder";
 import { toProgress, programsScrollY, HERO_END } from "@/lib/journey";
 import Emblem from "@/components/Story/Emblem";
 import ShapeArt from "./ShapeArt";
@@ -36,6 +37,7 @@ import ShapeArt from "./ShapeArt";
 if (typeof window !== "undefined") gsap.registerPlugin(Flip, SplitText);
 
 const ALL = programs.map((p) => p.id);
+const TOTAL = programs.length;
 const noSubscribe = () => () => {};
 const pad = (n) => String(n).padStart(2, "0");
 const liveCanvas = () => document.documentElement.dataset.world === "live" && !prefersReducedMotion();
@@ -94,7 +96,7 @@ export default function ProgramDetail() {
   /* ------------------------------------------------------------ open */
   const openNow = useCallback((id, list, from) => {
     returnTo.current = from ?? cardFor(id);
-    setView({ id, list: list?.length ? list : ALL, switching: false });
+    setView({ id, list: list?.length ? list : squadIdsOf(id), switching: false });
   }, []);
 
   // Runs after the panel shows the new program: the expand (first open) or the switch.
@@ -159,6 +161,10 @@ export default function ProgramDetail() {
     hideDetailShape();
     const card = returnTo.current;
     const reduced = prefersReducedMotion();
+    // The card may have moved off its rail's centre (prev / next): bring it back first.
+    const rail = card?.closest(".rail");
+    const cell = card?.closest(".rail-cell");
+    if (rail && cell) rail.scrollLeft = cell.offsetLeft + cell.offsetWidth / 2 - rail.clientWidth / 2;
     const tl = gsap.timeline({
       onComplete: () => {
         el.hidden = true;
@@ -225,7 +231,7 @@ export default function ProgramDetail() {
       if (id && !isOpen.current) {
         pushed.current = false;
         if (!sectionOnScreen()) jumpToPrograms(); // came from elsewhere in the story
-        openNow(id, ALL, cardFor(id));
+        openNow(id, squadIdsOf(id), cardFor(id));
       } else if (!id && isOpen.current) {
         pushed.current = false;
         closeNow();
@@ -243,7 +249,7 @@ export default function ProgramDetail() {
         if (cancelled) return;
         jumpToPrograms();
         const id = hashId();
-        if (id) setTimeout(() => !cancelled && openNow(id, ALL, cardFor(id)), 450);
+        if (id) setTimeout(() => !cancelled && openNow(id, squadIdsOf(id), cardFor(id)), 450);
       };
       // After the page has laid out and the scroll engine is running.
       setTimeout(go, 600);
@@ -296,7 +302,7 @@ export default function ProgramDetail() {
     if (Math.abs(dx) > DET.swipe && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
   };
 
-  const n = program ? programs.indexOf(program) + 1 : 0;
+  const n = program ? numberOf(program.id) : 0;
   // Rendered straight into <body> (a portal): the page wrapper is its own layer
   // (z-index 10), and the detail must sit above the lifted canvas (66).
   if (!host) return null;
@@ -316,7 +322,7 @@ export default function ProgramDetail() {
         <div className="detail-inner">
           <div className="detail-top">
             <p className="detail-label">
-              {COPY.label} {pad(n)} / {pad(programs.length)}
+              {COPY.label} {pad(n)} / {pad(TOTAL)}
             </p>
             <button type="button" className="detail-close" aria-label={COPY.close} onClick={requestClose}>
               <span aria-hidden="true" />

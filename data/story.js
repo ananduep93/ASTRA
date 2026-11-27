@@ -17,8 +17,12 @@ export const programsCopy = {
   headline: (count) => [`${count} missions.`, "Pick yours."], // EDITABLE
   // One short line under the title. Facts only: the college, the kind of fest, the year.
   subline: "Inter-college arts and tech fest, Don Bosco College, Mampetta, 2027.", // EDITABLE
-  filterLabel: "Filter by squad",
-  all: "All",
+  // One rail per squad: "Arts squad", "6 programs".
+  squadTitle: (squad) => `${squad} squad`,
+  count: (n) => `${n} ${n === 1 ? "program" : "programs"}`,
+  railLabel: (squad) => `${squad} squad programs, swipe or use the arrow keys`, // screen readers
+  prev: (squad) => `Previous ${squad} program`,
+  next: (squad) => `Next ${squad} program`,
   open: "Open mission file", // screen-reader hint on each card
 };
 
