@@ -3,9 +3,10 @@
 /**
  * The ONE fixed 3D canvas behind the whole site.
  *
- * Hero: stars assemble "ASTRA 2027", the camera flies through the letters and
- * arrives at Arts. Journey: the same camera glides along one spline through the
- * five squad clusters, the background alternating white / black.
+ * Hero: stars assemble "ASTRA 2027", the camera flies through the letters, the
+ * star-iris turns the world white for the briefing. The camera rests while the
+ * programs section (a normal page section) is read, then glides to the finale.
+ * The shape dots form the finale logo, and a program's shape in its detail view.
  * Everything reads scrollState.smooth, the shared smoothed scroll value,
  * through the scroll map in lib/journey.js.
  *
@@ -22,31 +23,27 @@ import { scrollState, getLenis, tripActive, snapSmooth } from "@/lib/scrollStore
 import { TIERS } from "@/lib/quality";
 import {
   toVh,
+  toProgress,
   toneAt,
   cameraAt,
-  activeStopAt,
-  focusAt,
+  partAt,
   CAMERA_POINTS,
-  TOTAL_SCROLL_VH,
-  ROSTERS,
-  programHoldVh,
+  totalVh,
+  HERO_END,
   finaleProgress,
   finaleSharedProgress,
-  arrivalVh,
   briefingSharedProgress,
 } from "@/lib/journey";
 import { storyStatus } from "@/lib/storyStatus";
+import { detailState } from "@/lib/detail";
 import HeroParticles from "./HeroParticles";
-import SquadClusters from "./SquadClusters";
 import ProgramField from "./ProgramField";
-import SquadAmbient from "./SquadAmbient";
-import TransitStreaks from "./TransitStreaks";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
 
 const BLACK = new THREE.Color(colors.black);
 const WHITE = new THREE.Color(colors.white);
 
-// One smooth path through every viewpoint (start, Arts, Tech, Gaming, Business, Fun).
+// One smooth path: start, the end of the hero flight, the finale.
 const CAMERA_CURVE = new THREE.CatmullRomCurve3(
   CAMERA_POINTS.map((p) => new THREE.Vector3(...p)),
   false,
@@ -83,7 +80,6 @@ function WorldRig() {
     if (cam.aim < 1) dir.lerp(ahead, 1 - cam.aim).normalize();
     look.copy(pos).add(dir);
     state.camera.lookAt(look);
-    state.camera.rotateZ(cam.roll); // each squad's horizon tilt
 
     const tone = toneAt(s);
     worldUniforms.uFromW.value = tone.fromW;
@@ -158,18 +154,15 @@ function DebugStats({ tier, count }) {
   const { gl, scene, camera } = useThree();
   useEffect(() => {
     window.__astraRender = { gl, scene, camera };
-    // Scroll map for tests: hold position (shared progress 0..1) of every program.
+    // Scroll map for tests.
     window.__astraJourney = {
-      totalVh: TOTAL_SCROLL_VH,
-      holds: ROSTERS.map((r, i) =>
-        r.map((p, j) => ({ id: p.id, squad: p.squad, progress: programHoldVh(i, j) / TOTAL_SCROLL_VH }))
-      ),
+      totalVh,
+      programsAt: () => toProgress(HERO_END + 100), // the programs section filling the screen
       finaleAt: finaleSharedProgress, // finale progress f (0..1) -> shared progress
-      arrivals: ROSTERS.map((_, i) => arrivalVh(i) / TOTAL_SCROLL_VH), // each squad's arrival moment
       lenisStopped: () => getLenis()?.isStopped ?? null,
       tripActive,
       briefingAt: briefingSharedProgress, // briefing progress f (0..1) -> shared progress
-      heroAt: (h) => (h * journey.heroVh) / TOTAL_SCROLL_VH, // hero progress (before the briefing) -> shared
+      heroAt: (h) => toProgress(h * journey.heroVh), // hero progress (before the briefing) -> shared
       // Tests only: scroll there AND set the scene there at once (skips the guided pace).
       jump: (p) => {
         const y = p * (document.documentElement.scrollHeight - window.innerHeight);
@@ -195,8 +188,8 @@ function DebugStats({ tier, count }) {
       progress: scrollState.smooth, // scene progress (paced)
       scroll: scrollState.progress, // real scroll position
       vh: s,
-      stop: activeStopAt(s),
-      focus: focusAt(s),
+      part: partAt(s),
+      detail: detailState.open ? detailState.programId : null,
       intro: heroStatus.intro,
       alpha: heroStatus.alpha,
       introSkipped: heroStatus.skipped,
@@ -235,10 +228,7 @@ export default function Scene({ tier = "high", debug = false }) {
         <WorldRig />
         <Backdrop />
         <HeroParticles count={cfg.particles} />
-        <SquadClusters ambient={cfg.ambient} haze={cfg.haze} />
-        <SquadAmbient perSquad={cfg.squadAmbient} />
         <ProgramField count={cfg.particles} />
-        <TransitStreaks count={cfg.streaks} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>

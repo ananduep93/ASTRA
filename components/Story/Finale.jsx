@@ -1,13 +1,12 @@
 "use client";
 
 /**
- * The finale, after the Fun stop (about 300vh of scroll, not pinned: a fixed
- * overlay like the squad stops, driven by the shared scroll value).
+ * The finale, after the programs section (a fixed overlay, not pinned, driven
+ * by the shared scroll value; the programs section scrolls away above it).
  *
- * Live: the dots (ProgramField, behind) appear as five clouds, form the five
- * squad emblems in the ".finale-slot" areas, then travel into the ASTRA logo
- * in the ".finale-logo" area (both are sampled from this layout, so they fit
- * every screen). A comet streak sweeps through, then the line and the call to
+ * Live: the dots (ProgramField, behind) appear scattered across the view and
+ * gather into the ASTRA logo in the ".finale-logo" area (sampled from this
+ * layout, so it fits every screen). A comet streak sweeps through, then the line and the call to
  * action rise. The sweep follows scroll; the text reveals are state-based
  * (lib/reveal.js), so they never rest half-clipped. Transform and opacity only.
  *
@@ -19,7 +18,6 @@ import Image from "next/image";
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
-import { SQUADS } from "@/data/programs";
 import { finale as copy } from "@/data/story";
 import { brand } from "@/lib/theme";
 import { ease, stagger, duration } from "@/lib/motion";
@@ -93,11 +91,8 @@ export default function Finale() {
 
   return (
     <section ref={root} className="finale" data-tone="dark" aria-labelledby="finale-title">
-      {/* Where the dots draw the five emblems and the logo (sampled from these boxes). */}
+      {/* Where the dots draw the logo (sampled from this box). */}
       <div className="finale-stage" aria-hidden="true">
-        {SQUADS.map((squad, i) => (
-          <div key={squad} className="finale-slot" data-slot={i} />
-        ))}
         <div className="finale-logo">
           <div className="finale-sweep-clip">
             <span className="finale-sweep" />

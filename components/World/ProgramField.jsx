@@ -1,70 +1,43 @@
 "use client";
 
 /**
- * The program reveal: ONE point cloud (one draw call) that sits at the
- * current squad's stop and morphs from program shape to program shape as the
- * visitor scrolls. Same technique as the ASTRA headline: shapes are drawn on a
- * hidden canvas and sampled into target points; the vertex shader moves every
- * dot between two targets.
+ * The shape dots: ONE point cloud (one draw call) for two jobs.
  *
- * Each squad moves its dots with its own "signature" (lib/motion.js):
- *   Arts curling ink, Tech grid snap + scan line, Gaming pixel glitch,
- *   Business rise like bars, Fun confetti burst.
+ *  - FINALE (scroll-driven): dots scattered across the view gather into the
+ *    ASTRA logo (sampled from the logo's transparency, same sampler as the
+ *    headline).
+ *  - PROGRAM DETAIL (time-driven, lib/detail.js): when a program card is
+ *    expanded, its shape forms in front of the camera, inside the detail's art
+ *    area. The dots arrive with the squad's signature (lib/motion.js):
+ *      Arts curling ink, Tech grid snap + scan line, Gaming pixel glitch
+ *      (square dots), Business rise like bars, Fun confetti burst.
+ *    Next / previous morphs straight from one shape into the next.
+ *    One shape at a time, never one canvas per card.
  *
- * Shapes are sampled into the screen area of the DOM ".program-shape" frame,
- * so they never overlap the program text, at any screen size.
+ * Shapes are drawn on a hidden canvas and sampled into target points; the
+ * vertex shader moves every dot between two targets.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import gsap from "gsap";
-import { colors, brand } from "@/lib/theme";
-import { hero, journey, finale as FIN, identity as ID } from "@/lib/motion";
-import { identities } from "@/data/story";
+import { colors, brand, squadAccent } from "@/lib/theme";
+import { hero, journey, finale as FIN, detail as DET } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
-import { SQUADS } from "@/data/programs";
+import { programs, SQUADS } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
-import { EMBLEMS } from "@/data/emblems";
 import { sampleShape, sampleImage, fillTargets, seededRandom } from "@/lib/textTargets";
-import {
-  ROSTERS,
-  STOP_COUNT,
-  toVh,
-  stopIndexAt,
-  fieldPresenceAt,
-  morphAt,
-  screenToLocal,
-  finaleAt,
-  STOP_VIEWS,
-} from "@/lib/journey";
+import { toVh, screenToLocal, finaleAt } from "@/lib/journey";
+import { detailState } from "@/lib/detail";
 import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
 
 const F = journey.field;
 const HALF_FOV = THREE.MathUtils.degToRad(hero.camera.fov / 2);
-const CLOUD = "__cloud";
-const FINALE = STOP_COUNT; // "stop" index used for the finale
-const emblemKey = (squad) => `__emblem_${squad}`;
+const SQUARE_DOTS = ["Gaming"]; // pixel-like dots for this squad's detail
+const RED = new THREE.Color(colors.red);
 
-/**
- * Orientation of each destination's hold camera (squads + finale). The shape
- * plane copies it, so it always faces the camera square-on: shapes land exactly
- * in the DOM shape area whatever the squad's camera angle and tilt.
- */
-const FACING = STOP_VIEWS.map(({ eye, target, roll }) => {
-  const cam = new THREE.PerspectiveCamera();
-  cam.position.set(...eye);
-  cam.lookAt(...target);
-  cam.rotateZ(roll);
-  return cam.quaternion.clone();
-});
-
-/** Per-squad dot look (lib/motion.js identity + data/story.js identities). */
-const LOOK = SQUADS.map((sq) => ({
-  density: ID[sq].density,
-  size: ID[sq].size,
-  square: identities[sq].dots === "square" ? 1 : 0,
-}));
-const finaleKey = (k) => `__finale_${k}`; // "cloud" | "emblems" | "logo"
+/** World units per screen pixel on a plane journey.viewDistance in front of the camera. */
+const localPerPx = () => (2 * journey.viewDistance * Math.tan(HALF_FOV)) / window.innerHeight;
 
 /** The logo image whose transparency the finale samples (loaded once). */
 let logoPromise = null;
@@ -76,99 +49,52 @@ const loadLogo = () =>
     img.src = brand.sample;
   }));
 
-/**
- * Finale targets, sampled from the DOM boxes in components/Story/Finale.jsx:
- * dots are split into five equal groups (one per squad); each group starts as
- * a loose cloud on its slot, then forms its squad's emblem there; then every
- * dot goes to a point of the logo.
- */
+/** Finale targets: scattered across the view, and the logo in the DOM ".finale-logo" box. */
 function sampleFinale(count, logoImg) {
-  const slots = [...document.querySelectorAll(".finale-slot")];
   const logoEl = document.querySelector(".finale-logo");
-  if (slots.length !== STOP_COUNT || !logoEl || !logoImg) return null;
+  if (!logoEl || !logoImg) return null;
   const wpp = localPerPx();
-  const per = Math.ceil(count / STOP_COUNT);
-  const group = (i) => Math.floor(i / per);
-  const cloud = new Float32Array(count * 3);
-  const emblems = new Float32Array(count * 3);
+  const halfW = (window.innerWidth / 2) * wpp * FIN.scatter;
+  const halfH = (window.innerHeight / 2) * wpp * FIN.scatter;
   const rand = seededRandom(4242);
-  const g = () => (rand() + rand() + rand() - 1.5) / 1.5;
-
-  slots.forEach((slot, k) => {
-    const r = slot.getBoundingClientRect();
-    const sample = sampleShape(EMBLEMS[SQUADS[k]], r, 0.04);
-    if (sample) fillTargets(emblems, sample, wpp, seededRandom(70 + k), (i) => group(i) !== k);
-    const [cx, cy] = screenToLocal(r.left + r.width / 2, r.top + r.height / 2, hero.camera.fov);
-    const rad = r.width * wpp * FIN.cloudRadius;
-    for (let i = k * per; i < Math.min(count, (k + 1) * per); i++) {
-      cloud[i * 3] = cx + g() * rad;
-      cloud[i * 3 + 1] = cy + g() * rad;
-      cloud[i * 3 + 2] = g() * rad * 0.5;
-    }
-  });
-  for (let i = 0; i < count; i++) emblems[i * 3 + 2] *= 0.6;
-
+  const scatter = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    scatter[i * 3] = (rand() * 2 - 1) * halfW;
+    scatter[i * 3 + 1] = (rand() * 2 - 1) * halfH;
+    scatter[i * 3 + 2] = (rand() - 0.5) * 1.5;
+  }
   const logo = new Float32Array(count * 3);
   const ls = sampleImage(logoImg, logoEl.getBoundingClientRect(), 0);
   if (!ls) return null;
   fillTargets(logo, ls, wpp, seededRandom(2027), () => false);
   for (let i = 0; i < count; i++) logo[i * 3 + 2] *= 0.5;
-  return { [finaleKey("cloud")]: cloud, [finaleKey("emblems")]: emblems, [finaleKey("logo")]: logo };
+  return { scatter, logo };
 }
 
-/** World units per screen pixel on a stop's cluster plane (its hold camera). */
-const localPerPx = () => (2 * journey.viewDistance * Math.tan(HALF_FOV)) / window.innerHeight;
+/** Detail targets for one program inside `rect` (screen px), plus the frame info the signatures need. */
+function sampleDetail(count, program, rect) {
+  const wpp = localPerPx();
+  const out = new Float32Array(count * 3);
+  const sample = sampleShape(SHAPES[shapeFor(program)], rect, F.framePadding);
+  if (sample) fillTargets(out, sample, wpp, seededRandom(31 + programs.indexOf(program)), () => false);
+  for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6; // nearly flat, a hint of depth
+  const [cx, cy] = screenToLocal(rect.left + rect.width / 2, rect.top + rect.height / 2, hero.camera.fov);
+  const halfW = (rect.width / 2) * wpp;
+  const bottom = screenToLocal(0, rect.bottom - rect.height * F.framePadding, hero.camera.fov)[1];
+  return { points: out, frame: { cx, cy, halfW, bottom } };
+}
 
-/** Loose cloud centred on the shape frame: where shapes gather from and disperse to. */
-function cloudPoints(count, centre) {
+/** A loose cloud around (cx, cy): where a detail shape gathers from. */
+function cloudPoints(count, cx, cy) {
   const rand = seededRandom(808);
   const g = () => (rand() + rand() + rand() - 1.5) / 1.5;
   const out = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
-    out[i * 3] = centre[0] + g() * F.cloudRadius * 1.3;
-    out[i * 3 + 1] = centre[1] + g() * F.cloudRadius;
+    out[i * 3] = cx + g() * F.cloudRadius * 1.6;
+    out[i * 3 + 1] = cy + g() * F.cloudRadius * 1.2;
     out[i * 3 + 2] = g() * F.cloudRadius * 0.5;
   }
   return out;
-}
-
-/**
- * Sample every shape used by any program into `count` local points.
- * Returns { byKey: {shapeKey: Float32Array}, frame: {...local frame info} }.
- */
-function sampleAllShapes(count) {
-  const frameEl = document.querySelector(".squad-stop .program-shape");
-  if (!frameEl) return null;
-  const r = frameEl.getBoundingClientRect();
-  if (!r.width || !r.height) return null;
-  const wpp = localPerPx();
-  const keys = [...new Set(ROSTERS.flat().map(shapeFor))];
-  const byKey = {};
-  keys.forEach((key, k) => {
-    const sample = sampleShape(SHAPES[key], r, F.framePadding);
-    const out = new Float32Array(count * 3);
-    if (sample) fillTargets(out, sample, wpp, seededRandom(31 + k), () => false);
-    for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6; // nearly flat, a hint of depth
-    byKey[key] = out;
-  });
-  const [cx, cy] = screenToLocal(r.left + r.width / 2, r.top + r.height / 2, hero.camera.fov);
-  const halfW = (r.width / 2) * wpp;
-  const bottom = screenToLocal(0, r.bottom - r.height * F.framePadding, hero.camera.fov)[1];
-
-  // Arrival: each squad's emblem, big, in the ".squad-arrival-emblem" box (same spot for every squad).
-  const emblemEl = document.querySelector(".squad-stop .squad-arrival-emblem");
-  const er = emblemEl?.getBoundingClientRect();
-  SQUADS.forEach((squad, k) => {
-    const out = new Float32Array(count * 3);
-    const sample = er?.width ? sampleShape(EMBLEMS[squad], er, 0.02) : null;
-    if (sample) fillTargets(out, sample, wpp, seededRandom(90 + k), () => false);
-    for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6;
-    byKey[emblemKey(squad)] = out;
-  });
-  // The arrival cloud gathers around the emblem's spot.
-  const ec = er?.width ? screenToLocal(er.left + er.width / 2, er.top + er.height / 2, hero.camera.fov) : [cx, cy];
-  byKey[CLOUD] = cloudPoints(count, ec);
-  return { byKey, frame: { cx, cy, halfW, bottom } };
 }
 
 /** Shader parameters for each squad's signature, packed as vec4. */
@@ -192,19 +118,17 @@ const vertexShader = /* glsl */ `
   attribute vec3 aFrom;
   attribute vec3 aTo;
   attribute float aSeed;
-  attribute float aRed;
 
   uniform float uMorph;     // 0..1 from shape "from" to shape "to"
   uniform float uTime;
   uniform float uAlpha;
   uniform float uScale, uMaxPx, uSize, uStagger;
-  uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun, 5 neutral (cloud moves)
+  uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun
   uniform vec4 uSigParams;
-  uniform float uDensity;   // share of dots shown (per squad)
-  uniform vec2 uSizeRange;  // dot size range as multiples of uSize (per squad)
+  uniform float uAccentShare; // share of dots in the accent colour
 
   varying float vAlpha;
-  varying float vRed;
+  varying float vAccent;
   varying float vBoost;
 
   float easeInOut(float t) { return t < 0.5 ? 4.0 * t * t * t : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0; }
@@ -250,15 +174,8 @@ const vertexShader = /* glsl */ `
       p.xy += dir * P.x * bump * (0.4 + aSeed);
       p.y -= P.y * bump * st;
       p.x += sin(st * 12.0 + aSeed * 20.0) * 0.06 * bump;
-    } else if (uSig == 5) {
-      // Neutral: every move to or from the loose cloud (arrivals, departures around the
-      // transitions). A smooth eased glide with a gentle bow: never blocky or snapped.
-      float bump = sin(3.14159 * st);
-      p = mix(aFrom, aTo, easeInOut(st));
-      vec2 bow = normalize(vec2(hash(aSeed * 2.3) - 0.5, hash(aSeed * 4.9) - 0.5) + 1e-4);
-      p.xy += bow * 0.18 * bump;
     } else {
-      // Arts: curling, ink-like flow.
+      // Arts (and the finale, with its own settings): curling, ink-like flow.
       float bump = sin(3.14159 * st);
       p = mix(aFrom, aTo, easeInOut(st));
       float a = aSeed * 6.2832 + st * P.y;
@@ -270,12 +187,10 @@ const vertexShader = /* glsl */ `
 
     vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
     float dist = -mvPosition.z;
-    float keep = step(aSeed, uDensity); // this squad's density
-    float size = uSize * mix(uSizeRange.x, uSizeRange.y, fract(aSeed * 7.31));
-    gl_PointSize = keep * clamp(size * (1.0 + boost * 0.8) * uScale / max(dist, 0.001), 1.0, uMaxPx);
+    gl_PointSize = clamp(uSize * (1.0 + boost * 0.8) * uScale / max(dist, 0.001), 1.0, uMaxPx);
     gl_Position = projectionMatrix * mvPosition;
-    vAlpha = keep * uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost);
-    vRed = aRed;
+    vAlpha = uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost);
+    vAccent = step(fract(aSeed * 91.71), uAccentShare);
     vBoost = boost;
   }
 `;
@@ -283,11 +198,11 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   uniform vec3 uLight;
   uniform vec3 uDark;
-  uniform vec3 uRed;
+  uniform vec3 uAccent;
+  uniform float uSquare;    // 1 = square, pixel-like dots
   varying float vAlpha;
-  varying float vRed;
+  varying float vAccent;
   varying float vBoost;
-  uniform float uSquare;    // 1 = square, pixel-like dots (per squad)
   ${bgMaskGLSL}
 
   void main() {
@@ -296,7 +211,7 @@ const fragmentShader = /* glsl */ `
     float a = mix(smoothstep(0.5, 0.12, d), step(d, 0.42), uSquare) * vAlpha;
     if (a < 0.01) discard;
     vec3 col = mix(uLight, uDark, bgWhite(gl_FragCoord.xy)); // opposite of the background
-    col = mix(col, uRed, vRed);
+    col = mix(col, uAccent, vAccent);
     gl_FragColor = vec4(col, min(1.0, a * (1.0 + vBoost)));
     #include <colorspace_fragment>
   }
@@ -304,20 +219,17 @@ const fragmentShader = /* glsl */ `
 
 export default function ProgramField({ count }) {
   const ref = useRef();
-  const shapes = useRef(null); // { byKey, frame }
-  const current = useRef({ stop: -2, from: null, to: null });
+  const finale = useRef(null); // { scatter, logo } once sampled
+  const mode = useRef(null); // "finale" | "detail" | null: which targets are in the buffers
+  const det = useRef({ version: -1, start: 0, duration: 1, last: null, alpha: 0, t: null });
 
   const data = useMemo(() => {
     const from = new Float32Array(count * 3);
     const to = new Float32Array(count * 3);
     const seed = new Float32Array(count);
-    const red = new Float32Array(count);
     const rand = seededRandom(1515);
-    for (let i = 0; i < count; i++) {
-      seed[i] = rand();
-      red[i] = i % F.redEvery === 7 ? 1 : 0;
-    }
-    return { from, to, seed, red };
+    for (let i = 0; i < count; i++) seed[i] = rand();
+    return { from, to, seed };
   }, [count]);
 
   const material = useMemo(
@@ -336,12 +248,11 @@ export default function ProgramField({ count }) {
           uStagger: { value: F.stagger },
           uSig: { value: 0 },
           uSigParams: { value: new THREE.Vector4() },
-          uDensity: { value: 1 },
-          uSizeRange: { value: new THREE.Vector2(1, 1) },
+          uAccentShare: { value: FIN.redShare },
           uSquare: { value: 0 },
           uLight: { value: new THREE.Color(colors.white) },
           uDark: { value: new THREE.Color(colors.black) },
-          uRed: { value: new THREE.Color(colors.red) },
+          uAccent: { value: RED.clone() },
         },
         transparent: true,
         depthWrite: false,
@@ -350,28 +261,21 @@ export default function ProgramField({ count }) {
   );
   useEffect(() => () => material.dispose(), [material]);
 
-  // Sample all shapes once the layout is ready, and again after a real resize.
+  // Sample the finale targets once the layout and the logo are ready, and again after a real resize.
   useEffect(() => {
     let timer;
     let lastW = window.innerWidth;
     let lastH = window.innerHeight;
     let cancelled = false;
-    const run = () => {
-      const result = sampleAllShapes(count);
-      if (!result) return;
-      shapes.current = result;
-      current.current = { stop: -2, from: null, to: null }; // force the buffers to refresh
-      // The finale needs the logo image: add its targets once it has loaded.
+    const run = () =>
       loadLogo().then((img) => {
-        if (cancelled || shapes.current !== result) return;
+        if (cancelled) return;
         const fin = sampleFinale(count, img);
         if (!fin) return;
-        Object.assign(result.byKey, fin);
-        result.finale = true;
-        current.current = { stop: -2, from: null, to: null };
+        finale.current = fin;
+        if (mode.current === "finale") mode.current = null; // refill the buffers
       });
-    };
-    const first = requestIdleCallbackSafe(run);
+    const first = afterFonts(run);
     const onResize = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -390,93 +294,86 @@ export default function ProgramField({ count }) {
     };
   }, [count]);
 
+  const fill = (pts, from, to) => {
+    const geo = pts.geometry;
+    geo.attributes.aFrom.array.set(from);
+    geo.attributes.aTo.array.set(to);
+    geo.attributes.aFrom.needsUpdate = true;
+    geo.attributes.aTo.needsUpdate = true;
+  };
+
   useFrame((state) => {
     const pts = ref.current;
-    const sh = shapes.current;
     if (!pts) return;
     const u = pts.material.uniforms;
-    u.uTime.value = state.clock.elapsedTime;
+    const now = state.clock.elapsedTime;
+    u.uTime.value = now;
     u.uScale.value = (state.size.height * state.viewport.dpr * 0.5) / Math.tan(HALF_FOV);
     u.uMaxPx.value = 24 * state.viewport.dpr;
 
-    const s = toVh(scrollState.smooth);
-
-    // Finale: the same dots, now at the finale spot: five clouds -> five emblems -> the logo.
-    const fin = finaleAt(s);
-    if (fin) {
-      if (!sh?.finale) {
-        u.uAlpha.value = 0;
-        pts.visible = false;
-        return;
+    /* ---- program detail: time-driven, in front of wherever the camera is ---- */
+    const d = det.current;
+    if (detailState.open || d.alpha > 0.001) {
+      if (detailState.open && d.version !== detailState.version && detailState.rect) {
+        d.version = detailState.version;
+        const program = programs.find((p) => p.id === detailState.programId);
+        const squad = detailState.squad;
+        const next = sampleDetail(count, program, detailState.rect);
+        // The plane sits journey.viewDistance in front of the camera, facing it square-on.
+        const cam = state.camera;
+        pts.quaternion.copy(cam.quaternion);
+        pts.position.copy(cam.position).add(new THREE.Vector3(0, 0, -journey.viewDistance).applyQuaternion(cam.quaternion));
+        const from =
+          detailState.switching && d.last && mode.current === "detail"
+            ? d.last
+            : cloudPoints(count, next.frame.cx, next.frame.cy);
+        fill(pts, from, next.points);
+        d.last = next.points;
+        d.start = now;
+        d.duration = detailState.switching ? DET.switchForm : DET.form;
+        mode.current = "detail";
+        u.uSig.value = SQUADS.indexOf(squad);
+        u.uSigParams.value.fromArray(signatureParams(squad, next.frame));
+        u.uSquare.value = SQUARE_DOTS.includes(squad) ? 1 : 0;
+        u.uAccent.value.set(squadAccent(squad));
+        u.uAccentShare.value = DET.accentShare;
+        u.uSize.value = F.size;
+        u.uStagger.value = F.stagger;
       }
-      u.uAlpha.value = fin.presence;
-      pts.visible = fin.presence > 0.001;
-      const fromKey = finaleKey(fin.morph.from);
-      const toKey = finaleKey(fin.morph.to);
-      const c = current.current;
-      if (c.stop !== FINALE) {
-        pts.position.set(...FIN.center);
-        pts.quaternion.copy(FACING[FINALE]);
-        u.uDensity.value = 1;
-        u.uSizeRange.value.set(1, 1);
-        u.uSquare.value = 0;
-        u.uSig.value = 0; // the curling path (Arts signature maths), with the finale's own settings
-        u.uSize.value = FIN.size;
-        u.uStagger.value = FIN.stagger;
-      }
-      if (c.stop !== FINALE || c.from !== fromKey || c.to !== toKey) {
-        const geo = pts.geometry;
-        geo.attributes.aFrom.array.set(sh.byKey[fromKey]);
-        geo.attributes.aTo.array.set(sh.byKey[toKey]);
-        geo.attributes.aFrom.needsUpdate = true;
-        geo.attributes.aTo.needsUpdate = true;
-        const [curl, swirl] = fin.morph.to === "logo" ? FIN.mergePath : FIN.emblemPath;
-        u.uSigParams.value.set(curl, swirl, 0, 0);
-        current.current = { stop: FINALE, from: fromKey, to: toKey };
-      }
-      u.uMorph.value = fin.morph.t;
+      // Fade in while open, out quickly once closed (time-based).
+      const dt = Math.min(0.1, now - (d.t ?? now));
+      d.t = now;
+      d.alpha += ((detailState.open ? 1 : 0) - d.alpha) * (1 - Math.exp(-10 * dt));
+      if (!detailState.open && d.alpha < 0.01) d.alpha = 0;
+      u.uAlpha.value = d.alpha;
+      u.uMorph.value = Math.min(1, (now - d.start) / d.duration);
+      pts.visible = d.alpha > 0.001;
       return;
     }
 
-    const i = stopIndexAt(s);
-    if (i < 0 || !sh) {
+    /* ---- finale: scroll-driven, scattered dots gather into the logo ---- */
+    const fin = finaleAt(toVh(scrollState.smooth));
+    if (!fin || !finale.current) {
       u.uAlpha.value = 0;
+      pts.visible = false;
       return;
     }
-    const presence = fieldPresenceAt(s, i);
-    u.uAlpha.value = presence;
-    pts.visible = presence > 0.001;
-    if (!pts.visible) return;
-
-    const m = morphAt(s, i);
-    const keyOf = (j) => (j === -1 ? CLOUD : j === -2 ? emblemKey(SQUADS[i]) : shapeFor(ROSTERS[i][j]));
-    const fromKey = keyOf(m.from);
-    const toKey = keyOf(m.to);
-    const c = current.current;
-    if (c.stop !== i) {
-      const [x, y, z] = journey.centers[i];
-      pts.position.set(x, y, z);
-      pts.quaternion.copy(FACING[i]); // face this squad's camera square-on
-      u.uDensity.value = LOOK[i].density;
-      u.uSizeRange.value.set(LOOK[i].size[0], LOOK[i].size[1]);
-      u.uSquare.value = LOOK[i].square;
-      u.uSize.value = F.size; // back from the finale's settings
-      u.uStagger.value = F.stagger;
-      u.uSigParams.value.fromArray(signatureParams(SQUADS[i], sh.frame));
+    if (mode.current !== "finale") {
+      fill(pts, finale.current.scatter, finale.current.logo);
+      pts.position.set(...FIN.center);
+      pts.quaternion.identity(); // the finale camera looks straight down -z at the logo
+      u.uSig.value = 0; // the curling path, with the finale's own settings
+      u.uSigParams.value.set(FIN.mergePath[0], FIN.mergePath[1], 0, 0);
+      u.uSquare.value = 0;
+      u.uAccent.value.copy(RED);
+      u.uAccentShare.value = FIN.redShare;
+      u.uSize.value = FIN.size;
+      u.uStagger.value = FIN.stagger;
+      mode.current = "finale";
     }
-    // The squad's signature only between shapes (emblem -> program, program -> program);
-    // anything to or from the loose cloud uses the neutral glide (5).
-    u.uSig.value = m.from === -1 || m.to === -1 ? 5 : Math.min(i, STOP_COUNT - 1);
-    if (c.stop !== i || c.from !== fromKey || c.to !== toKey) {
-      // New pair of shapes: copy their points into the two GPU buffers.
-      const geo = pts.geometry;
-      geo.attributes.aFrom.array.set(sh.byKey[fromKey]);
-      geo.attributes.aTo.array.set(sh.byKey[toKey]);
-      geo.attributes.aFrom.needsUpdate = true;
-      geo.attributes.aTo.needsUpdate = true;
-      current.current = { stop: i, from: fromKey, to: toKey };
-    }
-    u.uMorph.value = m.t;
+    u.uAlpha.value = fin.presence;
+    u.uMorph.value = fin.t;
+    pts.visible = fin.presence > 0.001;
   });
 
   return (
@@ -486,14 +383,13 @@ export default function ProgramField({ count }) {
         <bufferAttribute attach="attributes-aFrom" args={[data.from, 3]} />
         <bufferAttribute attach="attributes-aTo" args={[data.to, 3]} />
         <bufferAttribute attach="attributes-aSeed" args={[data.seed, 1]} />
-        <bufferAttribute attach="attributes-aRed" args={[data.red, 1]} />
       </bufferGeometry>
     </points>
   );
 }
 
 /** Run `fn` after fonts and layout are ready (one ticker frame later); returns a cancel function. */
-function requestIdleCallbackSafe(fn) {
+function afterFonts(fn) {
   let cancelled = false;
   document.fonts.ready.then(() => {
     gsap.ticker.add(() => {

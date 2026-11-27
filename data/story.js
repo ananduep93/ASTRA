@@ -36,76 +36,55 @@ export const briefingCopy = {
   },
 };
 
-/* One dossier per squad. Keys must match SQUADS in data/programs.js. */
-export const dossiers = {
-  Arts: {
-    codename: "Canvas", // EDITABLE
-    mission: "Make the ordinary worth a second look.", // EDITABLE
-  },
-  Tech: {
-    codename: "Circuit", // EDITABLE
-    mission: "Build it, test it, ship it before time runs out.", // EDITABLE
-  },
-  Gaming: {
-    codename: "Respawn", // EDITABLE
-    mission: "Read the map. Hold the line. Outplay the room.", // EDITABLE
-  },
-  Business: {
-    codename: "Ledger", // EDITABLE
-    mission: "Lead the room and make every call count.", // EDITABLE
-  },
-  Fun: {
-    codename: "Confetti", // EDITABLE
-    mission: "Follow the clues and keep the energy loud.", // EDITABLE
-  },
+/* The programs section (after the briefing). */
+export const programsCopy = {
+  label: "Mission files", // EDITABLE
+  // Big kinetic headline: one array entry per line. The count comes from data/programs.js.
+  headline: (count) => [`${count} missions.`, "Pick yours."], // EDITABLE
+  filterLabel: "Filter by squad",
+  all: "All",
+  open: "Open mission file", // screen-reader hint on each card
 };
 
-/**
- * Each squad's scene identity (what the stop LOOKS like). The numbers that
- * tune it (camera angle, dot density, sizes, motion speeds) live in
- * lib/motion.js under `identity`.
- *   tone     background: "black" | "nearBlack" | "white" | "offWhite" (lib/theme.js).
- *            Neighbours alternate light/dark so every move between squads inverts.
- *   ambient  the motion around the shapes, visible from the first second:
- *            "ribbons" | "grid" | "glitch" | "bars" | "confetti"
- *   dots     "round" or "square" (pixel-like) dots for this squad
- */
-export const identities = {
-  Arts: { tone: "offWhite", ambient: "ribbons", dots: "round" },
-  Tech: { tone: "black", ambient: "grid", dots: "round" },
-  Gaming: { tone: "white", ambient: "glitch", dots: "square" },
-  Business: { tone: "nearBlack", ambient: "bars", dots: "round" },
-  Fun: { tone: "offWhite", ambient: "confetti", dots: "round" },
+/* The program detail (a card expanded to full screen). Details stay TBA in data/programs.js. */
+export const detailCopy = {
+  label: "Mission file",
+  fields: [
+    { key: "date", label: "Date" },
+    { key: "venue", label: "Venue" },
+    { key: "fee", label: "Fee" },
+    { key: "rules", label: "Rules" },
+  ],
+  register: "Register",
+  registerSoon: "Opens soon",
+  close: "Close mission file",
+  prev: "Previous mission",
+  next: "Next mission",
+  swipeHint: "Swipe or use the arrows for the next mission", // EDITABLE
 };
 
-/* Menu labels. Squad items use the squad names from data/programs.js. */
+/* Menu labels. */
 export const menu = {
   open: "Open menu",
   close: "Close menu",
   title: "Navigate the story",
   home: "Home",
+  briefing: "Briefing",
+  programs: "Programs",
   finale: "Finale / Register",
 };
 
-/** Status line shown on each dossier and in the HUD, e.g. "SQUAD ARTS: ONLINE". */
-export const squadStatus = (squad) => `Squad ${squad}: online`;
-
-/** Shown under each squad's mission until the organisers publish a briefing. */
-export const briefing = `Briefing: ${TBA}`;
-
-/** Label above each program, e.g. "Mission file 03 / 15". */
-export const missionFileLabel = "Mission file";
-
-/* HUD status text (top right) outside the squad stops. */
+/* HUD status text (top right). */
 export const hudStatus = {
   searching: "Signal: searching", // before the opening line has played
   detected: "Signal: detected", // after it
   briefing: "Mission briefing", // during the briefing
-  inbound: "All squads: inbound", // finale, while the squads travel in
+  programs: "Mission files", // in the programs section
+  inbound: "All squads: inbound", // finale, while the dots gather
   online: "All squads: online", // finale, once the logo has formed
 };
 
-/* The finale after the Fun stop. */
+/* The finale after the programs. */
 export const finale = {
   line: "Five squads. One sky.", // EDITABLE
   cta: "Registration opens soon", // stays disabled until the real form (Phase 7)

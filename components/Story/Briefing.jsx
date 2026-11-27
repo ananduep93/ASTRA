@@ -142,7 +142,7 @@ export default function Briefing() {
   );
 
   return (
-    <section ref={root} className="briefing" data-tone="light" aria-labelledby="briefing-title">
+    <section ref={root} id="briefing" className="briefing" data-tone="light" aria-labelledby="briefing-title">
       <div className="briefing-intro">
         <p className="briefing-label">
           <span className="briefing-dot" aria-hidden="true" />

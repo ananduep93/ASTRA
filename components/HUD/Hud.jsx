@@ -4,10 +4,10 @@
  * The HUD: a fixed, click-through frame over the whole story.
  *  - thin corner brackets
  *  - the logo mark top left (the opening comet lands here)
- *  - status top right: signal before the squads, "Squad Arts: online" at each
- *    stop, "All squads: ..." in the finale
- *  - a slim progress line on the right edge, with one tick per squad
- *    (an ordered list for screen readers: "Arts, 1 of 5")
+ *  - status top right: signal, then "Mission briefing", "Mission files" in the
+ *    programs, "All squads: ..." in the finale
+ *  - a slim progress line on the right edge, with one tick per part of the
+ *    story (an ordered list for screen readers: "Programs, 2 of 3")
  *  - decorative coordinates bottom left (wide screens only), from scroll progress
  *  - a thin "syncing" line under the status while the scene is catching up
  *    with a fast scroll (guided pace, lib/motion.js `pacing`)
@@ -17,21 +17,20 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import gsap from "gsap";
-import { SQUADS } from "@/data/programs";
-import { squadStatus, hudStatus } from "@/data/story";
+import { hudStatus, menu as LABELS } from "@/data/story";
 import { brand } from "@/lib/theme";
 import { ease, duration, finale as FIN, pacing } from "@/lib/motion";
 import { scrollState } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
-import {
-  toVh,
-  activeStopAt,
-  whitenessAt,
-  stopStartVh,
-  finaleProgress,
-  briefingProgress,
-  TOTAL_SCROLL_VH,
-} from "@/lib/journey";
+import { toVh, toProgress, whitenessAt, finaleProgress, partAt, onLayout, HERO_END, finaleStartVh } from "@/lib/journey";
+import { briefing as BRF, journey as J } from "@/lib/motion";
+
+/** The parts of the story marked on the progress line, and where each starts (story vh). */
+const PARTS = [
+  { id: "briefing", label: LABELS.briefing, at: () => BRF.splitAt * J.heroVh },
+  { id: "programs", label: LABELS.programs, at: () => HERO_END },
+  { id: "finale", label: LABELS.finale, at: () => finaleStartVh() },
+];
 
 const pad = (n, w = 2) => String(Math.floor(n)).padStart(w, "0");
 
@@ -45,12 +44,10 @@ function coords(p) {
 }
 
 function statusAt(s) {
-  const f = finaleProgress(s);
-  if (f >= 0) return f >= FIN.merge[1] ? hudStatus.online : hudStatus.inbound;
-  const stop = activeStopAt(s);
-  if (stop >= 0) return squadStatus(SQUADS[stop]);
-  const b = briefingProgress(s);
-  if (b >= 0 && b <= 1) return hudStatus.briefing;
+  const part = partAt(s);
+  if (part === "finale") return finaleProgress(s) >= FIN.merge[1] ? hudStatus.online : hudStatus.inbound;
+  if (part === "programs") return hudStatus.programs;
+  if (part === "briefing") return hudStatus.briefing;
   const t = storyStatus.transmission;
   return t === "waiting" || t === "typing" ? hudStatus.searching : hudStatus.detected;
 }
@@ -69,8 +66,10 @@ export default function Hud() {
     const sync = el.querySelector(".hud-sync");
     let lastSync = -1;
 
-    // Each squad's tick sits where its stop starts on the progress line.
-    ticks.forEach((t, i) => t.style.setProperty("--at", String(stopStartVh(i) / TOTAL_SCROLL_VH)));
+    // Each part's tick sits where it starts on the progress line (moves when the programs section resizes).
+    const placeTicks = () => ticks.forEach((t, i) => t.style.setProperty("--at", String(toProgress(PARTS[i].at()))));
+    placeTicks();
+    const offLayout = onLayout(placeTicks);
 
     let shown = false;
     let markShown = false;
@@ -102,9 +101,11 @@ export default function Hud() {
       const tone = whitenessAt(s) > 0.5 ? "light" : "dark";
       if (tone !== lastTone) el.dataset.tone = lastTone = tone;
 
-      const active = activeStopAt(s);
-      const inFinale = finaleProgress(s) >= 0;
-      const a = inFinale ? -1 : active;
+      const part = partAt(s);
+      // CSS: no sky readout over the program cards (from the moment the section starts sliding in).
+      const cards = String(part === "programs" || (part === "briefing" && s >= HERO_END - 100));
+      if (el.dataset.cards !== cards) el.dataset.cards = cards;
+      const a = PARTS.findIndex((item) => item.id === part);
       if (a !== lastActive) {
         ticks.forEach((m, i) => (i === a ? m.setAttribute("aria-current", "step") : m.removeAttribute("aria-current")));
         lastActive = a;
@@ -114,7 +115,7 @@ export default function Hud() {
       if (p !== lastFill) {
         lastFill = p;
         fill.style.transform = `scaleY(${p})`;
-        rail.style.opacity = active >= 0 || inFinale ? "1" : "0.5";
+        rail.style.opacity = a >= 0 ? "1" : "0.5";
       }
       // Syncing: how far the scene is behind the real scroll position.
       const gap = Math.abs(scrollState.progress - scrollState.smooth);
@@ -130,7 +131,10 @@ export default function Hud() {
       if (c !== lastCoords) coordEl.textContent = lastCoords = c;
     };
     gsap.ticker.add(tick);
-    return () => gsap.ticker.remove(tick);
+    return () => {
+      gsap.ticker.remove(tick);
+      offLayout();
+    };
   }, []);
 
   return (
@@ -155,11 +159,11 @@ export default function Hud() {
       <span className="hud-sync" aria-hidden="true" />
       <div className="hud-rail">
         <span className="hud-rail-fill" aria-hidden="true" />
-        <ol className="hud-ticks" aria-label="Squad progress">
-          {SQUADS.map((squad, i) => (
-            <li key={squad} className="hud-tick">
+        <ol className="hud-ticks" aria-label="Story progress">
+          {PARTS.map((part, i) => (
+            <li key={part.id} className="hud-tick">
               <span className="sr-only">
-                {squad}, {i + 1} of {SQUADS.length}
+                {part.label}, {i + 1} of {PARTS.length}
               </span>
             </li>
           ))}

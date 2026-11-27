@@ -142,8 +142,8 @@ html[data-world="live"] .hero-title-wrap {
 }
 
 /* --------------------------------------------------------------- journey */
-/* Scroll room for the flight and the five stops. Present from the first HTML
-   (so a reload can restore the scroll position exactly). */
+/* Scroll room for the hero + briefing (before the programs) and the finale (after).
+   Present from the first HTML (so a reload can restore the scroll position exactly). */
 .journey-spacer {
   height: var(--journey-spacer);
 }
@@ -154,291 +154,11 @@ html[data-world="live"] .hero-title-wrap {
   }
 }
 
-/* Each squad stop: a fixed overlay (not pinned), hidden until the camera has
-   arrived. Its text colour comes from its background tone. Layout (phones first):
-   squad name at the top, the shape area under it, the focused program below.
-   Every area is placed absolutely, so the shape area is in the same spot for
-   every program and squad (the dots are sampled into it). */
-.squad-stop {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  color: var(--stop-fg);
-  visibility: hidden;
-  pointer-events: none;
-}
-.squad-stop[data-tone="light"] {
-  --stop-fg: var(--astra-black);
-}
-.squad-stop[data-tone="dark"] {
-  --stop-fg: var(--astra-white);
-}
-
-/* Arrival: the dots form the squad emblem in this box (sampled by ProgramField),
-   the squad name rises huge below it. Same spot for every squad. */
-.squad-arrival {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.squad-arrival-emblem {
-  position: absolute;
-  top: 34svh;
-  left: 50%;
-  width: min(56vw, 34svh);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-}
-.squad-arrival-name {
-  position: absolute;
-  top: calc(34svh + min(28vw, 17svh) + var(--astra-space-md));
-  right: var(--astra-space-gutter);
-  left: var(--astra-space-gutter);
-  font-family: var(--astra-font-display);
-  /* As big as the screen allows for this word (--len = letters), never taller than 24svh. */
-  font-size: min(calc((100vw - 2 * var(--astra-space-gutter)) / (var(--len) * 0.56)), 24svh);
-  font-weight: 800;
-  line-height: var(--astra-lh-display);
-  text-align: center;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Dossier header: emblem + status line, codename, mission and briefing.
-   Starts below the HUD bar (logo mark + status) so they never touch. */
-.squad-head {
-  position: absolute;
-  top: var(--hud-clear);
-  right: calc(var(--astra-space-gutter) + 2rem); /* room for the HUD progress line */
-  left: var(--astra-space-gutter);
-}
-.squad-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem; /* 16px: squad intro text */
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.squad-emblem {
-  width: 24px;
-  height: 24px;
-  flex: none;
-}
-.squad-title {
-  margin-top: var(--astra-space-2xs);
-}
-.squad-name {
-  display: block;
-  font-family: var(--astra-font-display);
-  font-size: max(1.875rem, var(--astra-text-h3)); /* the top of the hierarchy: 30px+ */
-  font-weight: 800;
-  line-height: var(--astra-lh-display);
-  text-transform: uppercase;
-}
-.squad-brief {
-  max-width: 34rem;
-  margin-top: var(--astra-space-2xs);
-  font-size: 1.125rem; /* 18px: the mission line */
-  line-height: 1.35;
-}
-.squad-briefing {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 1rem; /* 16px, quieter than the mission */
-  opacity: 0.7;
-}
-
-/* Squad emblems (data/emblems.js): red shapes, never text. */
+/* Squad emblems (data/emblems.js): squad accent shapes, never text. */
 .emblem {
   display: inline-block;
   fill: var(--astra-red);
 }
-
-/* The shape area: the dots draw the focused program here; tapping it opens Details. */
-.program-shape {
-  position: absolute;
-  top: max(30svh, calc(var(--hud-clear) + 11rem)); /* below the dossier */
-  right: calc(var(--astra-space-gutter) + 2rem);
-  left: var(--astra-space-gutter);
-  bottom: 45svh;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  pointer-events: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.program-shape:focus {
-  outline: none; /* never keyboard-focusable; focus goes to the Details button instead */
-}
-
-.program-copy {
-  position: absolute;
-  top: 57svh;
-  right: calc(var(--astra-space-gutter) + 2rem);
-  bottom: var(--astra-space-md);
-  left: var(--astra-space-gutter);
-}
-
-/* One card per program, stacked in the same spot; only the focused one shows. */
-.program-focus {
-  position: absolute;
-  inset: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--astra-space-2xs);
-  visibility: hidden;
-  pointer-events: none;
-}
-.program-count {
-  font-size: max(0.875rem, var(--astra-text-small)); /* never under 14px */
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.program-file {
-  padding: 0.1rem 0.4rem;
-  margin-right: 0.35rem;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-}
-.program-name {
-  font-family: var(--astra-font-display);
-  font-size: var(--astra-text-h2);
-  font-weight: 800;
-  line-height: var(--astra-lh-heading);
-  text-transform: uppercase;
-}
-.program-squad {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: max(0.875rem, var(--astra-text-small));
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.program-badge {
-  width: 18px;
-  height: 18px;
-}
-.program-details {
-  min-height: 44px; /* comfortable tap target */
-  margin-top: var(--astra-space-2xs);
-  padding: 0.55rem 1.1rem;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.program-details:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
-/* Short squad rail: one faint point per program, the focused one solid. Top right of the copy. */
-.program-rail {
-  position: absolute;
-  top: 0.35rem;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  list-style: none;
-}
-.program-rail li {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.3;
-  transform: scale(0.8);
-  transition:
-    transform var(--astra-dur-fast) var(--astra-ease-out),
-    opacity var(--astra-dur-fast) var(--astra-ease-out);
-}
-.program-rail li[data-active] {
-  opacity: 1;
-  transform: scale(1.4);
-}
-
-/* Wide screens: squad name and the focused program on the left, the shape on the right. */
-@media (min-width: 900px) {
-  .squad-arrival-emblem {
-    top: 36vh;
-    width: min(40vh, 30vw);
-  }
-  .squad-arrival-name {
-    top: calc(36vh + min(20vh, 15vw) + var(--astra-space-sm));
-    font-size: min(calc((100vw - 2 * var(--astra-space-gutter)) / (var(--len) * 0.56)), 30vh);
-  }
-  .squad-head {
-    top: max(12vh, var(--hud-clear));
-    right: auto;
-    width: 40%;
-  }
-  .program-shape {
-    top: 12vh;
-    right: calc(var(--astra-space-gutter) + 3rem);
-    bottom: 12vh;
-    left: 48%;
-  }
-  .program-copy {
-    top: calc(max(12vh, var(--hud-clear)) + 12.5rem); /* below the dossier */
-    right: auto;
-    bottom: 12vh;
-    width: 40%;
-  }
-  .program-name {
-    /* also capped by height, so a three-line name never reaches the HUD at the bottom */
-    font-size: min(var(--astra-text-h1), 7.5vw, 11vh);
-  }
-}
-
-/* Keyboard / screen-reader list of every program. Invisible until a button
-   is focused; then only that button shows, as a chip in the corner. */
-.program-index {
-  position: fixed;
-  bottom: var(--astra-space-md);
-  left: var(--astra-space-gutter);
-  z-index: 4;
-}
-.program-index ul {
-  list-style: none;
-}
-.program-index__item {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-.program-index__item:focus-visible {
-  position: static;
-  width: auto;
-  height: auto;
-  min-height: 44px;
-  margin: 0;
-  padding: 0.6rem 1rem;
-  overflow: visible;
-  clip-path: none;
-  border: 1px solid var(--astra-black);
-  border-radius: 2px;
-  background: var(--astra-white);
-  color: var(--astra-black);
-  font: inherit;
-  outline: 2px solid var(--astra-red);
-  outline-offset: 2px;
-}
-
 
 /* -------------------------------------------------------------------- HUD */
 /* Fixed, click-through frame. Colours follow the background via data-tone.
@@ -453,7 +173,7 @@ html[data-world="live"] .hero-title-wrap {
 .hud {
   position: fixed;
   inset: 0;
-  z-index: 3;
+  z-index: 4; /* above the programs section (3) and the fixed story layers (2) */
   color: var(--hud-fg);
   opacity: 0;
   pointer-events: none;
@@ -591,6 +311,11 @@ html[data-world="live"] .hero-title-wrap {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
   opacity: 0.6;
+  transition: opacity var(--astra-dur-fast) var(--astra-ease-out);
+}
+/* The program cards scroll under the HUD: no decorative readout over them. */
+.hud[data-cards="true"] .hud-coords {
+  opacity: 0;
 }
 @media (min-width: 900px) {
   .hud-coords {
@@ -944,6 +669,404 @@ html[data-world="live"] .hero-title-wrap {
   }
 }
 
+/* -------------------------------------------------------------- programs */
+/* A normal page section after the briefing. It slides up over the fixed story
+   layers (z-index above them, solid background in the post-iris tone), and the
+   finale is revealed under it as it scrolls away. */
+.programs {
+  position: relative;
+  z-index: 3;
+  padding: 0 calc(var(--astra-space-gutter) + 18px) var(--astra-space-2xl) var(--astra-space-gutter);
+  background: var(--astra-offwhite);
+  color: var(--astra-black);
+}
+/* A solid strip under the (see-through) HUD bar: it sticks to the top while the
+   section scrolls, so cards and headings pass behind it, never under the HUD text. */
+.programs-cover {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: calc(var(--hud-clear) + var(--astra-space-md));
+  margin: 0 calc(-1 * (var(--astra-space-gutter) + 18px)) 0 calc(-1 * var(--astra-space-gutter));
+  background: var(--astra-offwhite);
+}
+.shape-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  color: var(--astra-black); /* the halftone dots */
+}
+.programs-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.programs-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--astra-red);
+}
+.programs-title {
+  margin-top: var(--astra-space-sm);
+  font-family: var(--astra-font-display);
+  font-size: min(var(--astra-text-h1), 13.5vw);
+  font-weight: 800;
+  line-height: var(--astra-lh-display);
+  text-transform: uppercase;
+}
+.programs-line {
+  display: block;
+}
+
+/* Filter chips: stuck below the HUD while the section is on screen. */
+.chips {
+  position: sticky;
+  top: calc(var(--hud-clear) + var(--astra-space-md) - 8px); /* right under the cover strip */
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: var(--astra-space-md) 0 var(--astra-space-md);
+  padding: 8px 0;
+  background: var(--astra-offwhite);
+}
+/* Phones: one row that swipes sideways (the page itself never scrolls sideways),
+   so the stuck bar stays short. */
+@media (max-width: 639px) {
+  .chips {
+    flex-wrap: nowrap;
+    margin-right: calc(-1 * (var(--astra-space-gutter) + 18px));
+    margin-left: -4px; /* room for the focus ring of the first chip */
+    padding-right: var(--astra-space-gutter);
+    padding-left: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+  .chip {
+    flex: none;
+  }
+}
+.chip {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--astra-black);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--astra-black);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The squad accent sits on ink (a small mark), never behind text. */
+.chip-mark {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border: 2px solid var(--astra-black);
+  background: var(--squad, var(--astra-red));
+}
+.chip[aria-pressed="true"] {
+  background: var(--astra-black);
+  color: var(--astra-white);
+}
+.chip[aria-pressed="true"] .chip-mark {
+  border-color: var(--squad, var(--astra-red));
+}
+.chip:focus-visible,
+.card:focus-visible {
+  outline: 2px solid var(--astra-red);
+  outline-offset: 2px;
+}
+
+/* Poster cards: 1 / 2 / 3 columns; the first card of each filter is wide. */
+.cards {
+  display: grid;
+  gap: var(--astra-space-sm);
+  list-style: none;
+}
+.card {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--astra-black);
+  border-radius: 2px;
+  background: var(--astra-offwhite);
+  color: var(--astra-black);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-num {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.card-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  color: var(--astra-black);
+}
+.card-name {
+  font-family: var(--astra-font-display);
+  font-size: var(--astra-text-h3);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+}
+.card-squad,
+.detail-squad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+/* Squad badge: the emblem in its accent on a small ink tile (readable on light and dark). */
+.badge {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  border-radius: 2px;
+  background: var(--astra-black);
+}
+.badge .emblem {
+  width: 18px;
+  height: 18px;
+  fill: var(--squad, var(--astra-red));
+}
+.card-cell[data-featured] .card-art {
+  aspect-ratio: 16 / 9;
+}
+@media (min-width: 640px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .card-cell[data-featured] {
+    grid-column: span 2;
+  }
+  .card-cell[data-featured] .card {
+    grid-template-columns: 1.3fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    column-gap: var(--astra-space-md);
+  }
+  .card-cell[data-featured] .card-art {
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    aspect-ratio: 4 / 3;
+  }
+  .card-cell[data-featured] .card-name {
+    align-self: end;
+    font-size: var(--astra-text-h2);
+  }
+}
+@media (min-width: 1024px) {
+  .cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------- detail */
+/* A card grown to full screen (GSAP Flip). Once open, its background turns
+   see-through and the shared canvas (lifted above the page) draws the shape. */
+.detail {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+  background: var(--astra-offwhite);
+  color: var(--astra-black);
+  touch-action: pan-y;
+}
+.detail[hidden] {
+  display: none;
+}
+.detail.is-see-through {
+  background: transparent;
+}
+.detail-inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  gap: var(--astra-space-xs);
+  padding: max(10px, env(safe-area-inset-top)) var(--astra-space-gutter) var(--astra-space-sm);
+}
+.detail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--astra-space-sm);
+}
+.detail-label {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.detail-close,
+.detail-step {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--astra-black);
+  border-radius: 2px;
+  background: var(--astra-offwhite);
+  color: var(--astra-black);
+  font: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.detail-close span {
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.detail-close span + span {
+  transform: rotate(-45deg);
+}
+.detail-close:focus-visible,
+.detail-step:focus-visible {
+  outline: 2px solid var(--astra-red);
+  outline-offset: 2px;
+}
+.detail-art {
+  position: relative;
+  min-height: 30svh;
+}
+.detail-static-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* With the live canvas the dots draw the shape; the static one keeps the layout. */
+:root[data-world="live"] .detail-static-art {
+  opacity: 0;
+}
+.detail-info {
+  display: grid;
+  gap: var(--astra-space-2xs);
+}
+.detail-name {
+  font-family: var(--astra-font-display);
+  font-size: min(var(--astra-text-h2), 12vw);
+  font-weight: 800;
+  line-height: var(--astra-lh-heading);
+  text-transform: uppercase;
+}
+.detail-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px var(--astra-space-sm);
+}
+.detail-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--astra-space-xs);
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  font-size: 0.875rem;
+}
+.detail-facts dt {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.detail-register {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--astra-space-sm);
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: 2px;
+  background: var(--astra-black);
+  color: var(--astra-white);
+  font: inherit;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.detail-register span {
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+}
+.detail-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.detail-count {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.detail-hint {
+  font-size: 0.875rem;
+  opacity: 0.65;
+  text-align: center;
+}
+@media (min-width: 900px) {
+  .detail-inner {
+    grid-template-columns: 1.25fr 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: var(--astra-space-lg);
+    padding: var(--astra-space-md) var(--astra-space-gutter);
+  }
+  .detail-top {
+    grid-column: 1 / -1;
+  }
+  .detail-art {
+    grid-row: 2 / span 3;
+    grid-column: 1;
+  }
+  .detail-info {
+    grid-column: 2;
+    grid-row: 2;
+    align-content: center;
+  }
+  .detail-nav {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .detail-hint {
+    grid-column: 2;
+    grid-row: 4;
+    text-align: left;
+  }
+}
+
 /* ---------------------------------------------------------------- finale */
 .finale {
   position: fixed;
@@ -954,7 +1077,7 @@ html[data-world="live"] .hero-title-wrap {
   visibility: hidden;
   pointer-events: none;
 }
-/* Where the dots draw the five emblems (a pentagon) and the logo (centre). */
+/* Where the dots draw the logo (centre). */
 .finale-stage {
   position: absolute;
   top: calc(var(--hud-clear) + 0.5rem);
@@ -962,32 +1085,6 @@ html[data-world="live"] .hero-title-wrap {
   width: min(calc(100% - 2 * var(--astra-space-gutter) - 2rem), var(--finale-stage-h) * 1.35);
   height: var(--finale-stage-h);
   transform: translateX(-50%);
-}
-.finale-slot {
-  position: absolute;
-  width: 22%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-}
-.finale-slot[data-slot="0"] {
-  top: 11%;
-  left: 50%;
-}
-.finale-slot[data-slot="1"] {
-  top: 40%;
-  left: 88%;
-}
-.finale-slot[data-slot="2"] {
-  top: 88%;
-  left: 74%;
-}
-.finale-slot[data-slot="3"] {
-  top: 88%;
-  left: 26%;
-}
-.finale-slot[data-slot="4"] {
-  top: 40%;
-  left: 12%;
 }
 .finale-logo {
   position: absolute;
@@ -1044,102 +1141,6 @@ html[data-world="live"] .hero-title-wrap {
   font: inherit;
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* --------------------------------------------------- program detail panel */
-.program-dialog {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  overflow: hidden;
-}
-.program-dialog::backdrop {
-  background: transparent;
-}
-.program-dialog__scrim {
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--astra-black) 60%, transparent);
-}
-.program-dialog__panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  /* leave a dimmed strip on phones so there is always somewhere to tap to close */
-  width: min(30rem, calc(100% - 3rem));
-  flex-direction: column;
-  gap: var(--astra-space-md);
-  padding: var(--astra-space-lg) var(--astra-space-gutter);
-  overflow-y: auto;
-  background: var(--astra-white);
-  color: var(--astra-black);
-}
-.program-dialog__close {
-  align-self: flex-end;
-  min-height: 44px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.program-dialog__title {
-  font-family: var(--astra-font-display);
-  font-size: var(--astra-text-h2);
-  font-weight: 800;
-  line-height: var(--astra-lh-heading);
-  text-transform: uppercase;
-}
-.program-dialog__squad {
-  font-size: var(--astra-text-lead);
-}
-.program-dialog__facts {
-  display: grid;
-  gap: var(--astra-space-xs);
-}
-.program-dialog__facts div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--astra-space-sm);
-  padding-bottom: var(--astra-space-2xs);
-  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-}
-.program-dialog__facts dt {
-  font-weight: 600;
-}
-.program-dialog__register {
-  display: flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-  padding: 0.75rem 1rem;
-  border: 0;
-  border-radius: 2px;
-  background: var(--astra-black);
-  color: var(--astra-white);
-  font: inherit;
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.program-dialog__close:focus-visible,
-.program-dialog__register:focus-visible {
-  outline: 2px solid var(--astra-black);
-  outline-offset: 2px;
-}
-html:has(.program-dialog[open]) {
-  overflow: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {

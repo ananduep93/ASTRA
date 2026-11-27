@@ -1,19 +1,30 @@
 // One continuous scroll: stars form ASTRA 2027, a transmission goes out, the
-// camera flies through the letters, travels through the five squad stops, and
-// the squads come together into the logo in the finale. The 3D canvas behind
-// is fixed; this page provides the real text, the buttons and the scroll length.
+// camera flies through the letters, the star-iris opens the briefing, then the
+// programs section (a normal page section) and the finale, where the dots
+// gather into the logo. The 3D canvas behind is fixed; this page provides the
+// real text, the buttons and the scroll length.
 import HeroTitle from "@/components/Hero/HeroTitle";
 import Transmission from "@/components/Story/Transmission";
 import Briefing from "@/components/Story/Briefing";
-import SquadJourney from "@/components/Journey/SquadJourney";
+import Programs from "@/components/Programs/Programs";
+import ProgramDetail from "@/components/Programs/ProgramDetail";
 import Finale from "@/components/Story/Finale";
 import Hud from "@/components/HUD/Hud";
-import ProgramIndex from "@/components/Journey/ProgramIndex";
-import ProgramDialog from "@/components/Journey/ProgramDialog";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
 import Menu from "@/components/Menu/Menu";
-import { TOTAL_SCROLL_VH } from "@/lib/journey";
-import { touchScroll } from "@/lib/motion";
+import { HERO_END } from "@/lib/journey";
+import { finale as FIN, touchScroll } from "@/lib/motion";
+
+/** Scroll room for a fixed part of the story (removed in static mode). Touch screens get more (CSS, no reload jump). */
+function Spacer({ vh }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="journey-spacer"
+      style={{ "--journey-spacer": `${vh}vh`, "--touch-length": touchScroll.lengthMultiplier }}
+    />
+  );
+}
 
 export default function Home() {
   return (
@@ -21,26 +32,17 @@ export default function Home() {
       <main>
         <HeroTitle />
         <Transmission />
-        {/* Scroll room for the hero flight, the five stops and the finale (removed in static mode).
-            Touch screens get touchScroll.lengthMultiplier times more (CSS, so no reload jump). */}
-        <div
-          aria-hidden="true"
-          className="journey-spacer"
-          style={{
-            "--journey-spacer": `${TOTAL_SCROLL_VH}vh`,
-            "--touch-length": touchScroll.lengthMultiplier,
-          }}
-        />
+        <Spacer vh={HERO_END} />
         <Briefing />
-        <SquadJourney />
+        <Programs />
+        <Spacer vh={FIN.vh} />
         <Finale />
-        <ProgramIndex />
         <Hud />
-        <ProgramDialog />
         <ScrollReadout />
       </main>
-      {/* Outside <main>: the menu makes <main> inert while open, never itself. */}
+      {/* Outside <main>: the menu and the detail make <main> inert while open, never themselves. */}
       <Menu />
+      <ProgramDetail />
     </>
   );
 }

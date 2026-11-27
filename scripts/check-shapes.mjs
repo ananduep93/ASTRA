@@ -10,7 +10,6 @@
 import { programs, SQUADS } from "../data/programs.js";
 import { SHAPES, PROGRAM_SHAPES } from "../data/shapes.js";
 import { EMBLEMS } from "../data/emblems.js";
-import { dossiers } from "../data/story.js";
 
 const problems = [];
 const geometry = (shape) => JSON.stringify((shape.parts ?? [shape]).map((p) => [p.d, p.rule]));
@@ -39,7 +38,7 @@ for (const p of programs) {
 const ids = new Set(programs.map((p) => p.id));
 for (const id of Object.keys(PROGRAM_SHAPES)) if (!ids.has(id)) problems.push(`PROGRAM_SHAPES has "${id}", which is not a program`);
 
-// Squad emblems and dossiers: one each per squad, no two emblems alike.
+// Squad emblems: one per squad, no two alike (cards, badges and the detail use them).
 const emblemOwner = new Map();
 for (const squad of SQUADS) {
   const emblem = EMBLEMS[squad];
@@ -49,7 +48,6 @@ for (const squad of SQUADS) {
     if (emblemOwner.has(g)) problems.push(`squads "${squad}" and "${emblemOwner.get(g)}" have identical emblems`);
     emblemOwner.set(g, squad);
   }
-  if (!dossiers[squad]?.codename || !dossiers[squad]?.mission) problems.push(`squad "${squad}" has no dossier in data/story.js`);
 }
 
 if (problems.length) {

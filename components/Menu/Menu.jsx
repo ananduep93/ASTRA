@@ -4,7 +4,7 @@
  * The menu: a fixed button top right (two lines that turn into an X) and a
  * full-screen overlay that opens as a circle growing out of the button.
  *
- * - Items are real links (#top, #squad-arts ... #finale-title), so they work
+ * - Items are real links (#top, #briefing, #programs, #finale-title), so they work
  *   without JavaScript and in static mode. With the live story, a tap closes
  *   the menu and travels there with Lenis: shared ease, duration from the
  *   distance (capped), passing through the journey. Targets come from the
@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import gsap from "gsap";
-import { SQUADS } from "@/data/programs";
 import { menu as copy } from "@/data/story";
 import { brand } from "@/lib/theme";
 import { ease, menuMotion as M, tripDuration, prefersReducedMotion } from "@/lib/motion";
@@ -26,29 +25,33 @@ import { scrollState, getLenis, startTrip } from "@/lib/scrollStore";
 import { storyStatus } from "@/lib/storyStatus";
 import {
   toVh,
-  activeStopAt,
+  toProgress,
   whitenessAt,
-  finaleProgress,
-  arrivalVh,
+  partAt,
+  briefingSharedProgress,
   finaleSharedProgress,
-  sharedProgressOf,
-  TOTAL_SCROLL_VH,
+  HERO_END,
 } from "@/lib/journey";
-import Emblem from "@/components/Story/Emblem";
 
 const pad = (n) => String(n).padStart(2, "0");
 
 /** Menu entries: where each goes in the story (shared progress) and in the static page (element). */
 const ITEMS = [
   { id: "home", label: copy.home, href: "#top", progress: () => 0, el: () => document.getElementById("top") },
-  ...SQUADS.map((squad, i) => ({
-    id: squad,
-    label: squad,
-    squad,
-    href: `#squad-${squad.toLowerCase()}`,
-    progress: () => sharedProgressOf(arrivalVh(i)),
-    el: () => document.querySelector(`.squad-stop[data-stop="${i}"]`),
-  })),
+  {
+    id: "briefing",
+    label: copy.briefing,
+    href: "#briefing",
+    progress: () => briefingSharedProgress(0.25), // the headline fully up
+    el: () => document.getElementById("briefing"),
+  },
+  {
+    id: "programs",
+    label: copy.programs,
+    href: "#programs",
+    progress: () => toProgress(HERO_END + 100), // the section filling the screen
+    el: () => document.getElementById("programs"),
+  },
   {
     id: "finale",
     label: copy.finale,
@@ -60,10 +63,8 @@ const ITEMS = [
 
 /** Which item is "where you are" right now. */
 function currentItem() {
-  const s = toVh(scrollState.smooth);
-  if (finaleProgress(s) >= 0) return "finale";
-  const i = activeStopAt(s);
-  return i >= 0 ? SQUADS[i] : "home";
+  const part = partAt(toVh(scrollState.smooth));
+  return part === "hero" ? "home" : part;
 }
 
 /** Scroll to an item: through the story (live) or to its section (static). */
@@ -79,7 +80,7 @@ function travelTo(item) {
     return;
   }
   const fromVh = toVh(scrollState.smooth); // from where the scene is
-  const toVhTarget = live ? item.progress() * TOTAL_SCROLL_VH : (y / Math.max(1, max)) * TOTAL_SCROLL_VH;
+  const toVhTarget = toVh(live ? item.progress() : y / Math.max(1, max));
   const duration = tripDuration(toVhTarget - fromVh);
   const easing = gsap.parseEase(ease.inOut); // the shared ease, as a function
   // The page scrolls there, and the scene plays the same eased trip (faster than the
@@ -271,19 +272,15 @@ export default function Menu() {
                   <span className="menu-num" aria-hidden="true">
                     {pad(k)}
                   </span>
-                  {item.squad ? (
-                    <Emblem squad={item.squad} className="menu-emblem" />
-                  ) : (
-                    <Image
-                      className="menu-emblem menu-mark"
-                      src={brand.mark}
-                      width={brand.markSize[0]}
-                      height={brand.markSize[1]}
-                      alt=""
-                      aria-hidden="true"
-                      unoptimized
-                    />
-                  )}
+                  <Image
+                    className="menu-emblem menu-mark"
+                    src={brand.mark}
+                    width={brand.markSize[0]}
+                    height={brand.markSize[1]}
+                    alt=""
+                    aria-hidden="true"
+                    unoptimized
+                  />
                   <span className="menu-label">{item.label}</span>
                 </a>
               </li>
