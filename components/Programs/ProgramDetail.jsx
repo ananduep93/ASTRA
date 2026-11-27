@@ -5,21 +5,23 @@
  * shared eases and lib/motion.js `detail` timings), never left half-played,
  * interruptible at any point.
  *
- * OPEN (about 1.4s)
- *   0 - 0.35   the tapped card grows to full screen (Flip) while it turns from
- *              paper to black; its printed shape flies to the art area and its
- *              ink turns white
- *   0.35 - 0.9 the shared canvas is lifted; the dots appear EXACTLY on the
- *              printed halftone dots (lib/halftone.js), burst a little outward,
- *              then converge into the shape with the squad's signature
- *   0.9 - 1.4  the name reveals line by line (mask), then the badge, the TBA
- *              rows, the disabled Register button
+ * OPEN (about 1.5s, lib/motion.js `detail`)
+ *   0 - 0.35    the other cards of the rail slide out sideways; the tapped card lifts
+ *   0.15 - 0.5  its squad colour floods the screen (Flip from the card, its chamfered
+ *               cut opening up); its print flies to the art area
+ *   0.5 - 0.8   the colour drains to black, the print turns white
+ *   0.8 - 1.35  the shared canvas is lifted; the dots appear EXACTLY on the printed
+ *               dots (lib/halftone.js), burst a little, then converge into the shape
+ *               with the squad's signature, a soft squad-colour glow behind it
+ *   1.1 - 1.55  the name reveals line by line (mask), then the badge, the TBA
+ *               rows, the disabled Register button
  * PREV / NEXT (arrows, swipe, keys): a short turbulence melting into the next
  *   shape while the old name slides out and the new one slides in. Rapid presses
  *   overwrite each other (the dots continue from where they are).
- * CLOSE (X, Escape, browser Back), about 0.4s: the dots fall back onto the
- *   card's halftone dots, the card shrinks back to its place on the rail and
- *   turns back to paper. Closing during the expand plays it back in reverse.
+ * CLOSE (X, Escape, browser Back), about 0.6s: the dots fall back onto the
+ *   card's print, the black shrinks into the card's slot turning back into its
+ *   squad colour, the other cards slide back in. Closing before the canvas has
+ *   taken over plays the open back in reverse.
  *
  * While open: Lenis paused, page scroll locked, the page behind is inert, Tab
  * stays inside. Hash routing: #programs/photography opens it (also on reload),
@@ -66,6 +68,32 @@ function centreCard(card) {
   const cell = card?.closest(".rail-cell");
   if (rail && cell) rail.scrollLeft = cell.offsetLeft + cell.offsetWidth / 2 - rail.clientWidth / 2;
 }
+/** The other cards of `card`'s rail: those before it and those after it (they slide out / back in). */
+function siblings(card) {
+  const cell = card?.closest(".rail-cell");
+  const cells = cell ? [...cell.parentElement.children] : [];
+  const k = cells.indexOf(cell);
+  return { cell, before: cells.slice(0, Math.max(0, k)), after: cells.slice(k + 1), all: cells };
+}
+/**
+ * The card's chamfered cut (CSS .card --cut: tab at the top left, chamfer top right)
+ * as a px polygon for the full-screen sheet while it is scaled down onto the card
+ * by sx, sy (so on screen it matches the card exactly). `open` = 1: the full rectangle
+ * (same 7 points, so GSAP can tween between them).
+ */
+const CUT = { tabH: 26, tabW: 76, cham: 30 };
+function cutPolygon(sx, sy, open = 0) {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const k = 1 - open;
+  const th = (CUT.tabH / sy) * k;
+  const tw = (CUT.tabW / sx) * k;
+  const cx = (CUT.cham / sx) * k;
+  const cy = (CUT.cham / sy) * k;
+  const pt = (x, y) => `${x.toFixed(1)}px ${y.toFixed(1)}px`;
+  return `polygon(${[pt(0, 0), pt(tw, 0), pt(tw + (CUT.tabH / sx) * k, th), pt(W - cx, th), pt(W, th + cy), pt(W, H), pt(0, H)].join(", ")})`;
+}
+
 /** Call `fn` once the canvas has drawn detail change `version` (or after a short timeout). */
 function whenShown(version, fn) {
   const t0 = performance.now();
@@ -182,12 +210,13 @@ export default function ProgramDetail() {
     el.hidden = false;
     const live = liveCanvas();
     const card = returnTo.current;
-    const cardArt = card?.querySelector(".card-art");
+    const cardArt = card?.querySelector(".card-frame");
     const fromCard = !reduced && onScreen(card) && onScreen(cardArt);
     const artSq = contentSquare(art.getBoundingClientRect());
 
     // Text parts start hidden; they come in at DET.textAt.
     const texts = [
+      el.querySelector(".detail-rule"),
       el.querySelector(".detail-squad"),
       ...el.querySelectorAll(".detail-facts > div"),
       el.querySelector(".detail-register"),
@@ -207,21 +236,31 @@ export default function ProgramDetail() {
     });
     openTl.current = tl;
     if (fromCard) {
-      // 0 - expand: the card's paper grows to the screen and turns black; its print flies and turns white.
-      Flip.fit(sheet, card, { scale: true });
-      gsap.set(sheet, { opacity: 0 });
+      const cr = card.getBoundingClientRect();
+      const sx = cr.width / window.innerWidth;
+      const sy = cr.height / window.innerHeight;
+      const sib = siblings(card);
+      // 0: the other cards slide out sideways and fade; the tapped card lifts.
+      tl.to(sib.before, { xPercent: -60, opacity: 0, duration: DET.slide, ease: ease.inOut }, 0);
+      tl.to(sib.after, { xPercent: 60, opacity: 0, duration: DET.slide, ease: ease.inOut }, 0);
+      Flip.fit(sheet, card, { scale: true }); // the sheet sits exactly on the card: its colour, its cut
+      gsap.set(sheet, { opacity: 0, clipPath: cutPolygon(sx, sy) });
       gsap.set(black, { opacity: 0 });
-      tl.to(sheet, { opacity: 1, duration: 0.06, ease: "none" }, 0); // the card's text gives way
-      tl.to(sheet, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, 0);
-      tl.to(black, { opacity: 1, duration: DET.expand, ease: ease.inOut }, 0);
-      Flip.fit(fly, cardArt, { scale: true });
+      Flip.fit(fly, cardArt, { scale: true }); // the card's print, ink on the colour
       gsap.set(fly, { opacity: 1 });
       gsap.set(ink, { opacity: 1 });
       gsap.set(light, { opacity: 0 });
-      tl.to(fly, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, 0);
-      tl.to(ink, { opacity: 0, duration: DET.expand, ease: ease.inOut }, 0);
-      tl.to(light, { opacity: 1, duration: DET.expand, ease: ease.inOut }, 0);
-      liftAt.current = DET.expand;
+      tl.to(sheet, { opacity: 1, duration: 0.06, ease: "none" }, 0); // the card's own type gives way
+      tl.to([sheet, fly], { y: "-=14", duration: DET.lift, ease: ease.out }, 0);
+      // Then its colour floods the screen (the cut opens up), the print flies to the art area...
+      tl.to(sheet, { x: 0, y: 0, scaleX: 1, scaleY: 1, clipPath: cutPolygon(1, 1, 1), duration: DET.expand, ease: ease.inOut }, DET.lift);
+      tl.to(fly, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, DET.lift);
+      // ...and the colour drains to black while the print turns white.
+      const drainAt = DET.lift + DET.expand;
+      tl.to(black, { opacity: 1, duration: DET.drain, ease: ease.inOut }, drainAt);
+      tl.to(ink, { opacity: 0, duration: DET.drain, ease: ease.inOut }, drainAt);
+      tl.to(light, { opacity: 1, duration: DET.drain, ease: ease.inOut }, drainAt);
+      liftAt.current = drainAt + DET.drain;
     } else {
       // No card on screen (a link) or reduced motion: the black simply fades in.
       gsap.set(sheet, { clearProps: "transform" });
@@ -276,6 +315,8 @@ export default function ProgramDetail() {
       stopWait.current?.();
       el.hidden = true;
       gsap.set([sheet, black, fly, ink, light, inner], { clearProps: "all" });
+      const { all } = siblings(card);
+      if (all.length) gsap.set(all, { xPercent: 0, clearProps: "opacity" });
       lift(false);
       lock(false);
       split.current?.revert();
@@ -314,8 +355,10 @@ export default function ProgramDetail() {
     gsap.killTweensOf(el.querySelectorAll(".detail-name *, .detail-inner > *"));
 
     centreCard(card);
-    const cardArt = card?.querySelector(".card-art");
+    const cardArt = card?.querySelector(".card-frame");
     const toCard = !prefersReducedMotion() && onScreen(card) && onScreen(cardArt);
+    const sib = siblings(card);
+    if (sib.cell) gsap.set(sib.cell, { xPercent: 0, clearProps: "opacity" }); // the card itself is back in its slot (under the sheet)
     const tl = gsap.timeline({ onComplete: () => finish(card) });
     tl.to(inner, { opacity: 0, duration: 0.15, ease: ease.out }, 0);
 
@@ -345,16 +388,23 @@ export default function ProgramDetail() {
         swapAt
       );
       const rest = Math.max(0.12, DET.collapse - swapAt);
+      // The black sheet shrinks into the card's slot, its cut closing again, and turns back
+      // into the squad colour; the print back to ink; the other cards slide back in.
+      const cr = card.getBoundingClientRect();
+      gsap.set(sheet, { clipPath: cutPolygon(1, 1, 1) });
       tl.add(Flip.fit(sheet, card, { scale: true, duration: rest, ease: ease.inOut }), swapAt);
+      tl.to(sheet, { clipPath: cutPolygon(cr.width / window.innerWidth, cr.height / window.innerHeight), duration: rest, ease: ease.inOut }, swapAt);
       tl.to(black, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
       tl.to(ink, { opacity: 1, duration: rest, ease: ease.inOut }, swapAt);
       tl.to(light, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
-      tl.to(sheet, { opacity: 0, duration: 0.06, ease: "none" }, swapAt + rest - 0.06); // the card's own text returns
+      tl.to([...sib.before, ...sib.after], { xPercent: 0, opacity: 1, duration: rest, ease: ease.inOut }, swapAt);
+      tl.to(sheet, { opacity: 0, duration: 0.06, ease: "none" }, swapAt + rest - 0.06); // the card's own type returns
     } else {
       // Nothing to land on (reduced motion, card off screen): everything fades.
       if (detailState.open) hideDetailShape({ fade: true });
       gsap.set(fly, { opacity: 0 });
       tl.to(sheet, { opacity: 0, duration: duration.base * 0.6, ease: ease.out }, 0);
+      tl.to([...sib.before, ...sib.after], { xPercent: 0, opacity: 1, duration: duration.base * 0.6, ease: ease.out }, 0);
     }
   }, [finish, program, setPhase]);
 
@@ -544,7 +594,7 @@ export default function ProgramDetail() {
       {/* The card's printed shape in flight: ink on paper, white on black. */}
       <div className="detail-fly" aria-hidden="true">
         {flyId && <ShapeArt programId={flyId} className="fly-ink" />}
-        {flyId && <ShapeArt programId={flyId} className="fly-light" light />}
+        {flyId && <ShapeArt programId={flyId} className="fly-light" />}
       </div>
       {program && (
         <div className="detail-inner">
@@ -559,12 +609,13 @@ export default function ProgramDetail() {
           </div>
           {/* The shape forms from dots here (canvas); the static halftone shape without a canvas. */}
           <div className="detail-art" aria-hidden="true">
-            <ShapeArt programId={program.id} className="detail-static-art" light />
+            <ShapeArt programId={program.id} className="detail-static-art" />
           </div>
           <div className="detail-info">
             <h2 id="detail-name" className="detail-name" key={program.id}>
               {program.name}
             </h2>
+            <span className="detail-rule" aria-hidden="true" />
             <p className="detail-squad">
               <span className="badge">
                 <Emblem squad={program.squad} />

@@ -32,6 +32,7 @@ import { SHAPES, shapeFor } from "@/data/shapes";
 import { sampleShape, sampleImage, fillTargets, seededRandom } from "@/lib/textTargets";
 import { toVh, screenToLocal, finaleAt } from "@/lib/journey";
 import { detailState } from "@/lib/detail";
+import { HALFTONE } from "@/lib/halftone";
 import { worldUniforms, bgMaskGLSL } from "./worldUniforms";
 
 const F = journey.field;
@@ -78,7 +79,7 @@ function sampleFinale(count, logoImg) {
 function sampleDetail(count, program, rect) {
   const wpp = localPerPx();
   const out = new Float32Array(count * 3);
-  const sample = sampleShape(SHAPES[shapeFor(program)], rect, F.framePadding);
+  const sample = sampleShape(SHAPES[shapeFor(program)], rect, F.framePadding, HALFTONE.bold);
   if (sample) fillTargets(out, sample, wpp, seededRandom(31 + programs.indexOf(program)), () => false);
   for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6; // nearly flat, a hint of depth
   const [cx, cy] = screenToLocal(rect.left + rect.width / 2, rect.top + rect.height / 2, hero.camera.fov);
@@ -282,7 +283,39 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+/** The soft squad-colour glow behind a detail shape: one additive quad, a radial falloff. */
+const glowVertex = /* glsl */ `
+  varying vec2 vUv;
+  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+`;
+const glowFragment = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uAlpha;
+  varying vec2 vUv;
+  void main() {
+    float d = length(vUv - 0.5) * 2.0;
+    float a = (1.0 - smoothstep(0.0, 1.0, d)) * uAlpha;
+    gl_FragColor = vec4(uColor * a, a);
+    #include <colorspace_fragment>
+  }
+`;
+
 export default function ProgramField({ count, detailCount = count }) {
+  const glow = useRef();
+  const glowMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: glowVertex,
+        fragmentShader: glowFragment,
+        uniforms: { uColor: { value: new THREE.Color(colors.red) }, uAlpha: { value: 0 } },
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    []
+  );
+  useEffect(() => () => glowMaterial.dispose(), [glowMaterial]);
   const ref = useRef();
   const finale = useRef(null); // { scatter, logo } once sampled
   const mode = useRef(null); // "finale" | "detail" | null: which targets are in the buffers
@@ -428,6 +461,11 @@ export default function ProgramField({ count, detailCount = count }) {
             const next = sampleDetail(count, program, detailState.rect);
             to = next.points;
             u.uCenter.value.set(next.frame.cx, next.frame.cy);
+            if (glow.current) {
+              glow.current.position.set(next.frame.cx, next.frame.cy, -0.2);
+              glow.current.scale.setScalar(next.frame.halfW * 3.2);
+              glow.current.material.uniforms.uColor.value.set(squadAccent(detailState.squad));
+            }
             u.uSigParams.value.fromArray(signatureParams(detailState.squad, next.frame));
             d.stagger = F.stagger;
             if (phase === "open" && detailState.from) {
@@ -458,7 +496,7 @@ export default function ProgramField({ count, detailCount = count }) {
           u.uAccentShare.value = DET.accentShare;
           u.uStagger.value = d.stagger;
           // On the black detail: additive blending and a faint halo (overlapping dots glow a little).
-          u.uGlow.value = DET.glow;
+          u.uGlow.value = DET.halo;
           pts.material.blending = THREE.AdditiveBlending;
           u.uSize.value = F.size;
         }
@@ -478,8 +516,15 @@ export default function ProgramField({ count, detailCount = count }) {
       u.uAlpha.value = d.alpha;
       u.uMorph.value = Math.min(1, (now - d.start) / d.duration);
       pts.visible = d.alpha > 0.001;
+      if (glow.current) {
+        const formed = d.phase === "close" ? 1 - u.uMorph.value : Math.min(1, u.uMorph.value * 1.5);
+        const gu = glow.current.material.uniforms;
+        gu.uAlpha.value = DET.glow * d.alpha * (d.phase === "switch" ? 1 : formed);
+        glow.current.visible = pts.visible && gu.uAlpha.value > 0.002;
+      }
       detailState.shown = d.version; // this change is in the frame being drawn now
       if (d.active) return;
+      if (glow.current) glow.current.visible = false;
       pts.geometry.setDrawRange(0, Infinity);
       mode.current = null; // the finale refills its buffers when it is next needed
     }
@@ -517,6 +562,10 @@ export default function ProgramField({ count, detailCount = count }) {
 
   return (
     <points ref={ref} material={material} frustumCulled={false} visible={false}>
+      {/* Behind the shape (drawn first): the soft squad-colour glow of a program detail. */}
+      <mesh ref={glow} material={glowMaterial} visible={false} renderOrder={-1} frustumCulled={false}>
+        <planeGeometry args={[1, 1]} />
+      </mesh>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[data.from, 3]} />
         <bufferAttribute attach="attributes-aFrom" args={[data.from, 3]} />

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * PROGRAMS: right after the star-iris, a normal page section (it scrolls like
- * any page; the canvas holds white behind it, see lib/journey.js).
+ * PROGRAMS: right after the star-iris flash, a normal black page section (it
+ * scrolls like any page; the canvas holds black behind it, see lib/journey.js).
  *  - a kinetic header (SplitText lines, state-based reveal) and one short line
  *  - five rows, one per squad (Arts, Tech, Gaming, Business, Fun): a row header
  *    (emblem, squad, "6 programs", arrow buttons) and a horizontal RAIL of
@@ -13,8 +13,10 @@
  * one card. Vertical scrolling is never taken over: a vertical wheel or swipe
  * over a rail still scrolls the page (touch-action: pan-x pan-y; Lenis skips
  * only horizontal gestures over a rail: data-lenis-prevent-horizontal).
- * The card nearest the centre is full size, the others smaller and dimmer, and
- * each shape drifts a little with the rail (transform + opacity, one rAF).
+ * Cards are squad-coloured posters (3:4, chamfered corner, a number tab): the
+ * centre card is filled with its squad colour and printed in ink, lifted and
+ * floating; the others are a deep tint of the hue with a thin line, smaller.
+ * Shapes drift with the rail; cards tilt slightly with the swipe speed.
  *
  * Every reveal is state-based (never resting half-clipped) and waits for the
  * star-iris flash to fade half way (programsRevealed), then follows real screen positions.
@@ -35,13 +37,20 @@ import { stateReveal } from "@/lib/reveal";
 import { openDetail } from "@/lib/detail";
 import { numberOf, TOTAL } from "@/lib/programOrder";
 import Emblem from "@/components/Story/Emblem";
-import ShapeArt, { ShapeDefs } from "./ShapeArt";
+import ShapeArt from "./ShapeArt";
 
 const pad = (n) => String(n).padStart(2, "0");
 const isStatic = () => document.documentElement.dataset.world === "static";
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 const ROWS = SQUADS.map((squad) => ({ squad, items: programsBySquad(squad) }));
+/** A squad's colour tokens (lib/theme.js) as local CSS variables. */
+const squadVars = (squad) => ({
+  "--squad": `var(--squad-${squad})`,
+  "--squad-tint": `var(--squad-tint-${squad})`,
+  "--squad-line": `var(--squad-line-${squad})`,
+  "--squad-dim": `var(--squad-dim-${squad})`,
+});
 
 /* ------------------------------------------------------------------ rails */
 
@@ -70,45 +79,94 @@ function goTo(rail, i, smooth = true) {
 }
 
 /**
- * One rail's live behaviour: centre scale + parallax, dots, arrow states,
- * mouse drag (touch stays native). Returns a cleanup function.
+ * One rail's live behaviour, driven from ONE gsap.ticker loop (only while the
+ * rail is on screen): the card nearest the centre lifts and is full size, the
+ * others sit smaller; its fill, ink print and ink text fade in through `--on`
+ * (opacity only); the shape drifts with the rail (parallax); the centre card
+ * floats a little (time-based); every card tilts slightly with the swipe speed
+ * and settles back. Transforms only, no layout reads per frame (card centres are
+ * measured on resize). Also: dots, arrow states, mouse drag (touch stays
+ * native), left / right keys, arrows. Returns a cleanup function.
  */
 function wireRail(row) {
   const rail = row.querySelector(".rail");
   const cells = [...rail.children];
   const cards = cells.map((c) => c.querySelector(".card"));
-  const arts = cells.map((c) => c.querySelector(".card-art"));
+  const frames = cells.map((c) => c.querySelector(".card-frame"));
   const dots = [...row.querySelectorAll(".rail-dot")];
   const [prevBtn, nextBtn] = row.querySelectorAll(".rail-arrow");
-  const reduced = prefersReducedMotion() || isStatic();
-  let frame = 0;
-  let active = -1;
+  const calm = prefersReducedMotion() || isStatic(); // no float, no tilt, no parallax
+  const F = PGM.focus;
+  let centres = [];
+  let step = 1;
+  let half = 1;
+  let maxLeft = 0;
+  const measure = () => {
+    centres = cells.map((c) => c.offsetLeft + c.offsetWidth / 2);
+    step = cells.length > 1 ? centres[1] - centres[0] : rail.clientWidth;
+    half = rail.clientWidth / 2;
+    maxLeft = rail.scrollWidth - rail.clientWidth - 2;
+  };
+  measure();
 
-  const update = () => {
-    frame = 0;
-    const mid = rail.scrollLeft + rail.clientWidth / 2;
-    const step = cells.length > 1 ? cells[1].offsetLeft - cells[0].offsetLeft : rail.clientWidth;
-    cells.forEach((cell, i) => {
-      const d = (cell.offsetLeft + cell.offsetWidth / 2 - mid) / Math.max(1, step); // cards from the centre
-      const t = Math.min(1, Math.abs(d));
-      if (!reduced) {
-        cards[i].style.transform = `scale(${1 - PGM.sideScale * t})`;
-        arts[i].style.transform = `translate3d(${clamp(-d, -1.5, 1.5) * PGM.parallax}%, 0, 0)`;
+  const last = cells.map(() => ({ tf: "", on: "", px: "" })); // last written styles per card
+  let active = -1;
+  let lastLeft = rail.scrollLeft;
+  let vel = 0; // px per second, smoothed
+  let tilt = 0;
+  let visible = false;
+  let lastT = 0;
+
+  const frame = (time) => {
+    if (!visible) return;
+    const dt = Math.min(0.1, lastT ? time - lastT : 1 / 60);
+    lastT = time;
+    const left = rail.scrollLeft;
+    const v = (left - lastLeft) / Math.max(dt, 1e-3);
+    lastLeft = left;
+    vel += (v - vel) * (1 - Math.exp(-12 * dt));
+    const targetTilt = calm ? 0 : clamp(-vel * F.tiltPerPxPerSecond, -F.tiltMax, F.tiltMax);
+    tilt += (targetTilt - tilt) * (1 - Math.exp(-F.tiltSettle * dt));
+    const mid = left + half;
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < cells.length; i++) {
+      const d = (centres[i] - mid) / Math.max(1, step); // cards from the centre (signed)
+      const ad = Math.abs(d);
+      if (ad < bestD) {
+        bestD = ad;
+        best = i;
       }
-      cards[i].style.opacity = String(1 - (1 - PGM.sideOpacity) * t);
-    });
-    const i = centreIndex(rail);
-    if (i !== active) {
-      active = i;
-      dots.forEach((d, k) => (k === i ? d.setAttribute("data-on", "") : d.removeAttribute("data-on")));
+      const on = 1 - Math.min(1, ad); // 1 = the centre card
+      const scale = F.sideScale + (1 - F.sideScale) * on;
+      const float = calm ? 0 : Math.sin((time / F.floatPeriod) * Math.PI * 2) * F.floatAmp * on * on;
+      const y = F.lift * on + float;
+      // Write only what changed (a still rail costs no style work; only the centre card floats).
+      const tf = `translate3d(0, ${y.toFixed(1)}px, 0) rotate(${tilt.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+      if (tf !== last[i].tf) cards[i].style.transform = last[i].tf = tf;
+      const o = on.toFixed(2);
+      if (o !== last[i].on) cards[i].style.setProperty("--on", (last[i].on = o));
+      if (!calm) {
+        const px = `translate3d(${(clamp(-d, -1.5, 1.5) * PGM.parallax).toFixed(1)}%, 0, 0)`;
+        if (px !== last[i].px) frames[i].style.transform = last[i].px = px;
+      }
     }
-    const max = rail.scrollWidth - rail.clientWidth - 2;
-    prevBtn.disabled = rail.scrollLeft <= 2;
-    nextBtn.disabled = rail.scrollLeft >= max;
+    if (best !== active) {
+      active = best;
+      dots.forEach((dot, k) => (k === best ? dot.setAttribute("data-on", "") : dot.removeAttribute("data-on")));
+    }
+    if (prevBtn && prevBtn.disabled !== left <= 2) prevBtn.disabled = left <= 2;
+    if (nextBtn && nextBtn.disabled !== left >= maxLeft) nextBtn.disabled = left >= maxLeft;
   };
-  const queue = () => {
-    if (!frame) frame = requestAnimationFrame(update);
-  };
+
+  // Only while the row is on screen.
+  const io = new IntersectionObserver(([e]) => {
+    visible = e.isIntersecting;
+    lastT = 0;
+  });
+  io.observe(row);
+  const tick = (time) => frame(time);
+  gsap.ticker.add(tick);
 
   // Mouse drag (touch and pen scroll natively). Snapping is paused while dragging,
   // then the nearest card settles in the centre. A drag never counts as a click.
@@ -160,8 +218,9 @@ function wireRail(row) {
   };
   const onPrev = () => goTo(rail, centreIndex(rail) - 1);
   const onNext = () => goTo(rail, centreIndex(rail) + 1);
+  const ro = new ResizeObserver(measure);
+  ro.observe(rail);
 
-  rail.addEventListener("scroll", queue, { passive: true });
   rail.addEventListener("pointerdown", onDown);
   rail.addEventListener("pointermove", onMove);
   rail.addEventListener("pointerup", onUp);
@@ -169,13 +228,15 @@ function wireRail(row) {
   rail.addEventListener("click", onClick, true);
   rail.addEventListener("keydown", onKey);
   rail.addEventListener("focusin", onFocus);
-  prevBtn.addEventListener("click", onPrev);
-  nextBtn.addEventListener("click", onNext);
-  window.addEventListener("resize", queue);
-  update();
+  prevBtn?.addEventListener("click", onPrev);
+  nextBtn?.addEventListener("click", onNext);
+  visible = true;
+  frame(performance.now() / 1000); // first state before the first tick
+  visible = false;
   return () => {
-    cancelAnimationFrame(frame);
-    rail.removeEventListener("scroll", queue);
+    gsap.ticker.remove(tick);
+    io.disconnect();
+    ro.disconnect();
     rail.removeEventListener("pointerdown", onDown);
     rail.removeEventListener("pointermove", onMove);
     rail.removeEventListener("pointerup", onUp);
@@ -183,9 +244,8 @@ function wireRail(row) {
     rail.removeEventListener("click", onClick, true);
     rail.removeEventListener("keydown", onKey);
     rail.removeEventListener("focusin", onFocus);
-    prevBtn.removeEventListener("click", onPrev);
-    nextBtn.removeEventListener("click", onNext);
-    window.removeEventListener("resize", queue);
+    prevBtn?.removeEventListener("click", onPrev);
+    nextBtn?.removeEventListener("click", onNext);
   };
 }
 
@@ -261,8 +321,8 @@ export default function Programs() {
           tl.from(head, { opacity: 0, yPercent: 30, duration: duration.base, ease: ease.out });
           tl.fromTo(
             cells,
-            { clipPath: "inset(100% 0% 0% 0%)", yPercent: 8 },
-            { clipPath: "inset(0% 0% 0% 0%)", yPercent: 0, duration: duration.slow, ease: ease.expo, stagger: PGM.cardStagger },
+            { clipPath: "inset(100% -20% -10% -20%)", yPercent: 8 },
+            { clipPath: "inset(-30% -20% -10% -20%)", yPercent: 0, duration: duration.slow, ease: ease.expo, stagger: PGM.cardStagger },
             duration.fast
           );
           tl.from(dots, { opacity: 0, duration: duration.base, ease: ease.out }, "<0.2");
@@ -299,7 +359,6 @@ export default function Programs() {
   return (
     <section id="programs" ref={root} className="programs" aria-labelledby="programs-title">
       <div className="programs-cover" aria-hidden="true" />
-      <ShapeDefs />
       <header className="programs-head">
         <p className="programs-label">
           <span className="programs-dot" aria-hidden="true" />
@@ -322,7 +381,7 @@ export default function Programs() {
             key={squad}
             className="rail-row"
             aria-labelledby={`rail-${squad}`}
-            style={{ "--squad": `var(--squad-${squad})` }}
+            style={squadVars(squad)}
           >
             <header className="rail-head">
               <span className="badge rail-badge">
@@ -351,21 +410,30 @@ export default function Programs() {
                     data-id={p.id}
                     aria-haspopup="dialog"
                     aria-label={`${p.name}, ${p.squad} squad, mission ${numberOf(p.id)} of ${TOTAL}. ${COPY.open}`}
-                    style={{ "--squad": `var(--squad-${p.squad})` }}
+                    style={squadVars(p.squad)}
                     onClick={(e) => openDetail(p.id, ids, e.currentTarget)}
                   >
-                    <span className="card-num">
-                      {pad(numberOf(p.id))} / {pad(TOTAL)}
+                    {/* The poster: line, deep tint, and the full squad colour (fades in at the centre). */}
+                    <span className="card-body" aria-hidden="true">
+                      <span className="card-line" />
+                      <span className="card-tint" />
+                      <span className="card-fill" />
                     </span>
-                    <span className="card-frame">
-                      <ShapeArt programId={p.id} className="card-art" />
-                    </span>
-                    <span className="card-name">{p.name}</span>
-                    <span className="card-squad">
-                      <span className="badge">
-                        <Emblem squad={p.squad} />
+                    <span className="card-num" aria-hidden="true">
+                      <span className="on-dim">
+                        {pad(numberOf(p.id))} / {pad(TOTAL)}
                       </span>
-                      {p.squad} squad
+                      <span className="on-ink">
+                        {pad(numberOf(p.id))} / {pad(TOTAL)}
+                      </span>
+                    </span>
+                    <span className="card-frame" aria-hidden="true">
+                      <ShapeArt programId={p.id} className="card-art on-dim" />
+                      <ShapeArt programId={p.id} className="card-art on-ink" />
+                    </span>
+                    <span className="card-name" aria-hidden="true">
+                      <span className="on-dim">{p.name}</span>
+                      <span className="on-ink">{p.name}</span>
                     </span>
                   </button>
                 </li>

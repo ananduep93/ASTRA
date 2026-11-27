@@ -522,15 +522,8 @@ html[data-world="live"] .hero-title-wrap {
    fast flick) the section is see-through and empty: the transition stays visible behind
    it. Once done, the canvas is the same black, so the switch cannot be seen. */
 .programs[data-ready="false"],
-.programs[data-ready="false"] .programs-cover,
-.programs[data-ready="false"] .card {
+.programs[data-ready="false"] .programs-cover {
   background: transparent;
-}
-.shape-defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-  color: var(--astra-black); /* the halftone dots (ink); the light pattern sets its own white */
 }
 .programs-label {
   display: flex;
@@ -574,7 +567,7 @@ html[data-world="live"] .hero-title-wrap {
 }
 @media (min-width: 640px) {
   .programs {
-    --card-w: 360px;
+    --card-w: 330px;
     --rail-gap: 24px;
   }
 }
@@ -599,6 +592,7 @@ html[data-world="live"] .hero-title-wrap {
   height: 24px;
 }
 .rail-title {
+  white-space: nowrap;
   font-family: var(--astra-font-display);
   font-size: var(--astra-text-h3);
   font-weight: 800;
@@ -606,6 +600,7 @@ html[data-world="live"] .hero-title-wrap {
   text-transform: uppercase;
 }
 .rail-count {
+  white-space: nowrap;
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -646,7 +641,8 @@ html[data-world="live"] .hero-title-wrap {
   display: flex;
   gap: var(--rail-gap);
   margin: var(--astra-space-md) calc(-1 * var(--gr)) 0 calc(-1 * var(--gl));
-  padding: 10px calc((100% + var(--gl) + var(--gr) - var(--card-w)) / 2);
+  /* Top room: the centre card lifts and its shape rises above the card's edge; never clipped. */
+  padding: 44px calc((100% + var(--gl) + var(--gr) - var(--card-w)) / 2) 18px;
   overflow-x: auto;
   overflow-y: hidden;
   list-style: none;
@@ -703,51 +699,104 @@ html[data-world="live"] .hero-title-wrap {
   outline-offset: 2px;
 }
 
-/* Poster cards: white paper on the black section. Number, the halftone shape (ink),
-   the name, the squad badge. */
+/* Poster cards: squad-coloured, 3:4, a chamfered top-right corner and a file tab
+   with the number at the top left. Layers (opacity only): the 1px line, the deep
+   tint (inactive), the full squad colour (fades in at the rail's centre through
+   --on, set per frame by the rail). Ink (black) layers fade in with it; the
+   "dim" layers (white type, squad-colour shape) fade out. */
 .card {
-  display: grid;
+  --on: 0;
+  --tab-h: 26px;
+  --tab-w: 76px;
+  --cham: 30px;
+  --cut: polygon(0 0, var(--tab-w) 0, calc(var(--tab-w) + var(--tab-h)) var(--tab-h), calc(100% - var(--cham)) var(--tab-h), 100% calc(var(--tab-h) + var(--cham)), 100% 100%, 0 100%);
+  position: relative;
+  display: block;
   width: 100%;
-  min-height: 44px;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 12px;
-  padding: 16px;
+  aspect-ratio: 3 / 4;
+  padding: 0;
   border: 0;
-  border-radius: 2px;
-  background: var(--astra-white);
-  color: var(--astra-black);
+  background: none;
+  color: var(--astra-white);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transform-origin: 50% 50%;
-  will-change: transform, opacity;
+  transform-origin: 50% 60%;
+  will-change: transform;
   -webkit-tap-highlight-color: transparent;
 }
-.card-num {
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.06em;
+.card-body,
+.card-line,
+.card-tint,
+.card-fill {
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cut);
 }
-.card-frame {
-  display: block;
-  overflow: hidden; /* the shape drifts inside */
+.card-line {
+  background: var(--squad-line, var(--astra-red));
 }
-.card-art {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
+.card-tint {
+  inset: 1px; /* the line shows as a 1px border all round, the chamfer and tab included */
+  background: var(--squad-tint, var(--astra-black));
+}
+.card-fill {
+  background: var(--squad, var(--astra-red));
+  opacity: var(--on);
+}
+.card .on-ink {
   color: var(--astra-black);
+  opacity: var(--on);
+}
+.card .on-dim {
+  opacity: calc(1 - var(--on));
+}
+.card-num {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  display: grid;
+  height: var(--tab-h);
+  align-items: center;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.card-num > span,
+.card-name > span {
+  grid-area: 1 / 1;
+}
+/* The shape: a square box that rises a little above the card's top edge (depth). */
+.card-frame {
+  position: absolute;
+  top: -5%;
+  left: 9%;
+  width: 82%;
+  aspect-ratio: 1 / 1;
   will-change: transform;
 }
+.card-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.card-art.on-dim {
+  color: var(--squad-dim, var(--astra-red));
+}
 .card-name {
-  align-self: end;
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  display: grid;
   font-family: var(--astra-font-display);
-  font-size: var(--astra-text-h3);
+  font-size: clamp(1.6rem, 7.4vw, 2.25rem);
   font-weight: 800;
-  line-height: var(--astra-lh-heading);
+  line-height: 0.95;
   text-transform: uppercase;
 }
-.card-squad,
 .detail-squad {
   display: flex;
   align-items: center;
@@ -789,13 +838,14 @@ html[data-world="live"] .hero-title-wrap {
 .detail[hidden] {
   display: none;
 }
-/* The card's paper grown to the screen (Flip); it turns black, then steps aside for the
-   canvas. Without a canvas it simply stays black. */
+/* The card's squad colour flooding the screen (Flip from the card, its chamfered cut
+   opening up); it drains to black, then steps aside for the canvas. Without a canvas
+   it simply stays black. */
 .detail-sheet {
   position: absolute;
   inset: 0;
-  background: var(--astra-white);
-  will-change: transform, opacity;
+  background: var(--squad, var(--astra-red));
+  will-change: transform, opacity, clip-path;
 }
 .detail-sheet-black {
   position: absolute;
@@ -814,6 +864,13 @@ html[data-world="live"] .hero-title-wrap {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.fly-ink {
+  color: var(--astra-black);
+}
+.fly-light,
+.detail-static-art {
+  color: var(--astra-white);
 }
 .detail-inner {
   z-index: 1;
@@ -895,6 +952,13 @@ html[data-world="live"] .hero-title-wrap {
 .detail-ghost {
   pointer-events: none;
 }
+/* The squad-colour underline under the name (fades in with the details). */
+.detail-rule {
+  display: block;
+  height: 2px;
+  margin-top: -2px;
+  background: var(--squad, var(--astra-red));
+}
 .detail-name {
   font-family: var(--astra-font-display);
   font-size: min(var(--astra-text-h2), 12vw);
@@ -926,7 +990,7 @@ html[data-world="live"] .hero-title-wrap {
   justify-content: space-between;
   gap: var(--astra-space-sm);
   padding: 0.6rem 1rem;
-  border: 1px dashed var(--astra-white); /* outlined; dashed = not open yet */
+  border: 1px dashed var(--squad, var(--astra-white)); /* squad-colour outline; dashed = not open yet */
   border-radius: 2px;
   background: transparent;
   color: var(--astra-white); /* full white: the disabled label stays readable */
