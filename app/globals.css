@@ -782,15 +782,41 @@ html[data-world="live"] .hero-title-wrap {
   inset: 0;
   z-index: 70;
   overflow: hidden;
-  background: var(--astra-black);
+  background: transparent; /* the sheet (and then the lifted canvas) is the background */
   color: var(--astra-white);
   touch-action: pan-y;
 }
 .detail[hidden] {
   display: none;
 }
-.detail.is-see-through {
-  background: transparent;
+/* The card's paper grown to the screen (Flip); it turns black, then steps aside for the
+   canvas. Without a canvas it simply stays black. */
+.detail-sheet {
+  position: absolute;
+  inset: 0;
+  background: var(--astra-white);
+  will-change: transform, opacity;
+}
+.detail-sheet-black {
+  position: absolute;
+  inset: 0;
+  background: var(--astra-black);
+}
+/* The card's printed shape in flight (placed and sized by JS): ink and white copies cross-fade. */
+.detail-fly {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.detail-fly .shape-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.detail-inner {
+  z-index: 1;
 }
 .detail-inner {
   position: absolute;
@@ -862,8 +888,12 @@ html[data-world="live"] .hero-title-wrap {
   opacity: 0;
 }
 .detail-info {
+  position: relative; /* the old name slides out from here (a ghost copy) */
   display: grid;
   gap: var(--astra-space-2xs);
+}
+.detail-ghost {
+  pointer-events: none;
 }
 .detail-name {
   font-family: var(--astra-font-display);

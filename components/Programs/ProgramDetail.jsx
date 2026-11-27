@@ -1,23 +1,31 @@
 "use client";
 
 /**
- * PROGRAM DETAIL: tapping a card expands it to full screen (GSAP Flip.fit:
- * the panel starts exactly on the card and grows to the screen). Then the
- * shared canvas is lifted above the page and the program's shape forms from
- * dots in the art area, arriving with its squad's signature (one shape at a
- * time: components/World/ProgramField.jsx via lib/detail.js). The name reveals
- * line by line (state-based), the details show TBA, Register says "Opens soon".
+ * PROGRAM DETAIL: a small cinematic moment, time-based (GSAP timelines with the
+ * shared eases and lib/motion.js `detail` timings), never left half-played,
+ * interruptible at any point.
  *
- *  - Previous / next buttons, arrow keys and a horizontal swipe move through
- *    the programs of the same squad (the shape morphs straight across).
- *  - Close: the X, Escape, or the browser Back button. Its rail brings the card
- *    to the centre, the panel shrinks back onto it, and focus returns to it.
- *  - While open: Lenis paused, page scroll locked, the page behind is inert,
- *    Tab stays inside.
- *  - Hash routing: #programs/photography opens it (also on reload), #programs
- *    scrolls to the section; Back closes.
- *  - No canvas (low tier, reduced motion, WebGL failure): the static halftone
- *    shape, and fades instead of the expand.
+ * OPEN (about 1.4s)
+ *   0 - 0.35   the tapped card grows to full screen (Flip) while it turns from
+ *              paper to black; its printed shape flies to the art area and its
+ *              ink turns white
+ *   0.35 - 0.9 the shared canvas is lifted; the dots appear EXACTLY on the
+ *              printed halftone dots (lib/halftone.js), burst a little outward,
+ *              then converge into the shape with the squad's signature
+ *   0.9 - 1.4  the name reveals line by line (mask), then the badge, the TBA
+ *              rows, the disabled Register button
+ * PREV / NEXT (arrows, swipe, keys): a short turbulence melting into the next
+ *   shape while the old name slides out and the new one slides in. Rapid presses
+ *   overwrite each other (the dots continue from where they are).
+ * CLOSE (X, Escape, browser Back), about 0.4s: the dots fall back onto the
+ *   card's halftone dots, the card shrinks back to its place on the rail and
+ *   turns back to paper. Closing during the expand plays it back in reverse.
+ *
+ * While open: Lenis paused, page scroll locked, the page behind is inert, Tab
+ * stays inside. Hash routing: #programs/photography opens it (also on reload),
+ * #programs scrolls to the section; Back closes.
+ * No canvas (low tier) or reduced motion: the static halftone shape; reduced
+ * motion gets simple fades only.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -26,9 +34,10 @@ import { Flip } from "gsap/Flip";
 import { SplitText } from "gsap/SplitText";
 import { programs } from "@/data/programs";
 import { detailCopy as COPY } from "@/data/story";
-import { ease, duration, stagger, detail as DET, prefersReducedMotion } from "@/lib/motion";
+import { ease, duration, detail as DET, prefersReducedMotion } from "@/lib/motion";
 import { getLenis, startTrip } from "@/lib/scrollStore";
-import { DETAIL_EVENT, showDetailShape, hideDetailShape } from "@/lib/detail";
+import { DETAIL_EVENT, detailState, showDetailShape, collapseDetailShape, hideDetailShape } from "@/lib/detail";
+import { dotsOnScreen, contentSquare } from "@/lib/halftone";
 import { numberOf, squadIdsOf } from "@/lib/programOrder";
 import { toProgress, programsScrollY, HERO_END } from "@/lib/journey";
 import Emblem from "@/components/Story/Emblem";
@@ -47,40 +56,72 @@ const hashId = () => {
   const m = window.location.hash.match(/^#programs\/([\w-]+)$/);
   return m && ALL.includes(m[1]) ? m[1] : null;
 };
+const onScreen = (el) => {
+  const r = el?.getBoundingClientRect();
+  return !!r && r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+};
+/** Bring a card to the centre of its rail at once (so it is where the detail grows from / returns to). */
+function centreCard(card) {
+  const rail = card?.closest(".rail");
+  const cell = card?.closest(".rail-cell");
+  if (rail && cell) rail.scrollLeft = cell.offsetLeft + cell.offsetWidth / 2 - rail.clientWidth / 2;
+}
+/** Call `fn` once the canvas has drawn detail change `version` (or after a short timeout). */
+function whenShown(version, fn) {
+  const t0 = performance.now();
+  const tick = () => {
+    if (detailState.shown >= version || performance.now() - t0 > 300) {
+      gsap.ticker.remove(tick);
+      fn();
+    }
+  };
+  gsap.ticker.add(tick);
+  return () => gsap.ticker.remove(tick);
+}
 
-/** True when the programs section fills the screen (so the grid stays exactly where it is). */
+/** True when the programs section fills the screen (so the rails stay exactly where they are). */
 function sectionOnScreen() {
   const r = document.getElementById("programs")?.getBoundingClientRect();
   return !!r && r.top <= 1 && r.bottom >= window.innerHeight - 1;
 }
 
-/** Scroll (instantly) so the programs section fills the screen: hash links and reloads. */
-function jumpToPrograms() {
+/** Scroll (instantly) to the programs section (or to a card's row): hash links and reloads. */
+function jumpToPrograms(card) {
   const section = document.getElementById("programs");
   if (!section) return;
   const live = document.documentElement.dataset.world === "live";
-  const y = live ? programsScrollY() : section.getBoundingClientRect().top + window.scrollY;
+  const row = card?.closest(".rail-row");
+  let y = live ? programsScrollY() : section.getBoundingClientRect().top + window.scrollY;
+  if (row) y = Math.max(y, row.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.12);
   const lenis = getLenis();
   if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
   else window.scrollTo(0, y);
-  startTrip(toProgress(HERO_END), 0.01, (t) => t); // the scene is there on the next frame
+  startTrip(toProgress(HERO_END), 0.01, (t) => t); // the scene is at the hold on the next frame
 }
 
 export default function ProgramDetail() {
-  const [view, setView] = useState({ id: null, list: ALL, switching: false });
+  const [view, setView] = useState({ id: null, list: ALL });
   // <body> once on the client (null while server-rendering): the portal target below.
   const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
   const host = onClient ? document.body : null;
   const panel = useRef(null);
   const returnTo = useRef(null);
   const pushed = useRef(false); // we added a history entry (so Close goes Back)
-  const isOpen = useRef(false);
-  const busy = useRef(false);
-  const swipe = useRef(null);
+  const phase = useRef(null); // null | "opening" | "open" | "closing"
+  const openTl = useRef(null);
+  const liftAt = useRef(0); // time in openTl where the canvas takes over
+  const stopWait = useRef(null);
   const split = useRef(null);
+  const swipe = useRef(null);
+  const linkTimer = useRef(0); // a pending open from a #programs/<id> link
 
   const program = programs.find((p) => p.id === view.id);
   const index = view.id ? view.list.indexOf(view.id) : -1;
+  /** The detail's phase, mirrored on the panel as data-phase (CSS hooks, tests). */
+  const setPhase = useCallback((v) => {
+    phase.current = v;
+    if (panel.current) panel.current.dataset.phase = v ?? "";
+  }, []);
 
   /* ---------------------------------------------------------- lock page */
   const lock = useCallback((on) => {
@@ -93,106 +134,233 @@ export default function ProgramDetail() {
     if (lenis) on ? lenis.stop() : lenis.start();
   }, []);
 
+  const lift = (on) => {
+    const c = canvasEl();
+    if (c) c.style.zIndex = on ? "66" : ""; // the canvas above the page, under the detail
+  };
+  const parts = (el) => ({
+    sheet: el.querySelector(".detail-sheet"),
+    black: el.querySelector(".detail-sheet-black"),
+    fly: el.querySelector(".detail-fly"),
+    ink: el.querySelector(".fly-ink"),
+    light: el.querySelector(".fly-light"),
+    inner: el.querySelector(".detail-inner"),
+    art: el.querySelector(".detail-art"),
+  });
+  /** Put the flying print exactly over a square screen box (no transform). */
+  const placeFly = (fly, box) =>
+    gsap.set(fly, { left: box.left, top: box.top, width: box.width, height: box.height, x: 0, y: 0, scaleX: 1, scaleY: 1 });
+
   /* ------------------------------------------------------------ open */
   const openNow = useCallback((id, list, from) => {
     returnTo.current = from ?? cardFor(id);
-    setView({ id, list: list?.length ? list : squadIdsOf(id), switching: false });
+    setView({ id, list: list?.length ? list : squadIdsOf(id), first: true });
   }, []);
 
-  // Runs after the panel shows the new program: the expand (first open) or the switch.
+  // After React shows the program: the first open (the full sequence) or a switch (the text part).
   useLayoutEffect(() => {
     const el = panel.current;
     if (!view.id || !el) return;
-    const art = el.querySelector(".detail-art");
-    const squad = programs.find((p) => p.id === view.id).squad;
+    const prog = programs.find((p) => p.id === view.id);
+    const reduced = prefersReducedMotion();
+    const { sheet, black, fly, ink, light, inner, art } = parts(el);
 
-    // Name: lines rise out of a mask (re-split for each program).
     split.current?.revert();
     split.current = SplitText.create(el.querySelector(".detail-name"), { type: "lines", mask: "lines" });
-    const nameIn = () =>
-      gsap.fromTo(split.current.lines, { yPercent: 110 }, { yPercent: 0, duration: duration.slow, ease: ease.expo, stagger: stagger.base });
+    const lines = split.current.lines;
 
-    if (isOpen.current) {
-      // Next / previous: the shape morphs across, the text swaps.
-      nameIn();
-      gsap.fromTo(el.querySelectorAll(".detail-fade"), { opacity: 0 }, { opacity: 1, duration: duration.base, ease: ease.out, stagger: stagger.tight });
-      if (liveCanvas()) showDetailShape({ programId: view.id, squad, rect: art.getBoundingClientRect(), switching: true });
+    if (!view.first) {
+      // Prev / next: the new name slides in from below (the old one is sliding out as a ghost).
+      if (reduced) gsap.fromTo(lines, { opacity: 0 }, { opacity: 1, duration: DET.nameSlide, ease: ease.out });
+      else gsap.fromTo(lines, { yPercent: 110 }, { yPercent: 0, duration: DET.nameSlide, ease: ease.expo, stagger: 0.04 });
       return;
     }
 
-    // First open: lock the page, grow the panel from its card, then lift the canvas and form the shape.
-    isOpen.current = true;
-    busy.current = true;
+    // First open.
+    setPhase("opening");
     lock(true);
     el.hidden = false;
-    const reduced = prefersReducedMotion();
+    const live = liveCanvas();
     const card = returnTo.current;
-    const inner = el.querySelector(".detail-inner");
+    const cardArt = card?.querySelector(".card-art");
+    const fromCard = !reduced && onScreen(card) && onScreen(cardArt);
+    const artSq = contentSquare(art.getBoundingClientRect());
+
+    // Text parts start hidden; they come in at DET.textAt.
+    const texts = [
+      el.querySelector(".detail-squad"),
+      ...el.querySelectorAll(".detail-facts > div"),
+      el.querySelector(".detail-register"),
+      el.querySelector(".detail-nav"),
+      el.querySelector(".detail-hint"),
+      el.querySelector(".detail-top"),
+    ].filter(Boolean);
+    gsap.set(inner, { opacity: 1 });
+    gsap.set(texts, { opacity: 0 });
+    gsap.set(lines, reduced ? { opacity: 0 } : { yPercent: 110 });
+    placeFly(fly, artSq);
+
     const tl = gsap.timeline({
       onComplete: () => {
-        busy.current = false;
         el.querySelector(".detail-close")?.focus({ preventScroll: true });
       },
     });
-    gsap.set(inner, { opacity: 0 });
-    if (!reduced && card && card.getBoundingClientRect().width) {
-      Flip.fit(el, card, { scale: true }); // start exactly on the card
-      tl.to(el, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut });
+    openTl.current = tl;
+    if (fromCard) {
+      // 0 - expand: the card's paper grows to the screen and turns black; its print flies and turns white.
+      Flip.fit(sheet, card, { scale: true });
+      gsap.set(sheet, { opacity: 0 });
+      gsap.set(black, { opacity: 0 });
+      tl.to(sheet, { opacity: 1, duration: 0.06, ease: "none" }, 0); // the card's text gives way
+      tl.to(sheet, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, 0);
+      tl.to(black, { opacity: 1, duration: DET.expand, ease: ease.inOut }, 0);
+      Flip.fit(fly, cardArt, { scale: true });
+      gsap.set(fly, { opacity: 1 });
+      gsap.set(ink, { opacity: 1 });
+      gsap.set(light, { opacity: 0 });
+      tl.to(fly, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, 0);
+      tl.to(ink, { opacity: 0, duration: DET.expand, ease: ease.inOut }, 0);
+      tl.to(light, { opacity: 1, duration: DET.expand, ease: ease.inOut }, 0);
+      liftAt.current = DET.expand;
     } else {
-      tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: duration.base, ease: ease.out });
+      // No card on screen (a link) or reduced motion: the black simply fades in.
+      gsap.set(sheet, { clearProps: "transform" });
+      gsap.set(black, { opacity: 1 });
+      gsap.set(fly, { opacity: 0 });
+      tl.fromTo(sheet, { opacity: 0 }, { opacity: 1, duration: duration.fast, ease: ease.out }, 0);
+      liftAt.current = duration.fast;
     }
-    tl.call(() => {
-      if (!liveCanvas()) return;
-      const c = canvasEl();
-      if (c) c.style.zIndex = "66"; // the canvas above the page, under the detail text
-      el.classList.add("is-see-through");
-      showDetailShape({ programId: view.id, squad, rect: art.getBoundingClientRect(), switching: false });
-    });
-    tl.to(inner, { opacity: 1, duration: duration.base, ease: ease.out });
-    tl.call(nameIn, [], "<");
-  }, [view, lock]);
+
+    // The canvas takes over: the dots start on the printed dots, burst and converge.
+    tl.call(
+      () => {
+        setPhase("open");
+        if (!live) {
+          gsap.set(fly, { opacity: 0 }); // the static shape (same place) shows instead
+          return;
+        }
+        lift(true);
+        showDetailShape({
+          programId: prog.id,
+          squad: prog.squad,
+          rect: art.getBoundingClientRect(),
+          phase: fromCard ? "open" : "cloud",
+          from: fromCard ? dotsOnScreen(prog, artSq) : null,
+        });
+        const v = detailState.version;
+        stopWait.current = whenShown(v, () => {
+          gsap.set(sheet, { opacity: 0 }); // the lifted canvas is the same black behind
+          gsap.set(fly, { opacity: 0 });
+        });
+      },
+      null,
+      liftAt.current
+    );
+
+    // Text: name lines, then the badge, the rows, Register, the rest.
+    const at = fromCard ? DET.textAt : liftAt.current + (live ? DET.form * 0.6 : 0.1);
+    if (reduced) {
+      tl.to(lines, { opacity: 1, duration: duration.base, ease: ease.out }, at);
+      tl.to(texts, { opacity: 1, duration: duration.base, ease: ease.out }, at);
+    } else {
+      tl.to(lines, { yPercent: 0, duration: 0.3, ease: ease.expo, stagger: 0.05 }, at);
+      tl.to(texts, { opacity: 1, duration: 0.25, ease: ease.out, stagger: DET.textStagger * 0.5 }, at + DET.textStagger * 1.5);
+    }
+  }, [view, lock, setPhase]);
 
   /* ----------------------------------------------------------- close */
+  const finish = useCallback(
+    (card) => {
+      const el = panel.current;
+      const { sheet, black, fly, ink, light, inner } = parts(el);
+      stopWait.current?.();
+      el.hidden = true;
+      gsap.set([sheet, black, fly, ink, light, inner], { clearProps: "all" });
+      lift(false);
+      lock(false);
+      split.current?.revert();
+      split.current = null;
+      el.querySelectorAll(".detail-ghost").forEach((g) => g.remove());
+      setPhase(null);
+      openTl.current = null;
+      setView((v) => ({ ...v, id: null }));
+      card?.focus({ preventScroll: true });
+    },
+    [lock, setPhase]
+  );
+
   const closeNow = useCallback(() => {
     const el = panel.current;
-    if (!isOpen.current || !el) return;
-    isOpen.current = false;
-    busy.current = true;
-    hideDetailShape();
+    if (!el || !phase.current || phase.current === "closing") return;
+    const was = phase.current;
+    clearTimeout(linkTimer.current);
+    setPhase("closing");
+    stopWait.current?.();
+    const { sheet, black, fly, ink, light, inner } = parts(el);
     const card = returnTo.current;
-    const reduced = prefersReducedMotion();
-    // The card may have moved off its rail's centre (prev / next): bring it back first.
-    const rail = card?.closest(".rail");
-    const cell = card?.closest(".rail-cell");
-    if (rail && cell) rail.scrollLeft = cell.offsetLeft + cell.offsetWidth / 2 - rail.clientWidth / 2;
-    const tl = gsap.timeline({
-      onComplete: () => {
-        el.hidden = true;
-        gsap.set(el, { clearProps: "transform,opacity" });
-        lock(false);
-        busy.current = false;
-        split.current?.revert();
-        split.current = null;
-        setView((v) => ({ ...v, id: null }));
-        card?.focus({ preventScroll: true });
-      },
-    });
-    tl.to(el.querySelector(".detail-inner"), { opacity: 0, duration: duration.fast, ease: ease.out });
-    tl.call(() => {
-      el.classList.remove("is-see-through"); // opaque again before the canvas drops back
-      const c = canvasEl();
-      if (c) c.style.zIndex = "";
-    });
-    if (!reduced && card && card.getBoundingClientRect().width) {
-      tl.add(Flip.fit(el, card, { scale: true, duration: DET.collapse, ease: ease.inOut }));
-    } else {
-      tl.to(el, { opacity: 0, duration: duration.base, ease: ease.out });
+    const prog = programs.find((p) => p.id === card?.dataset.id) ?? program;
+    const tl0 = openTl.current;
+
+    // Still expanding (the canvas has not taken over): play the expand back, faster.
+    if (was === "opening" && tl0 && tl0.time() < liftAt.current) {
+      gsap.to(inner, { opacity: 0, duration: duration.fast * 0.5 });
+      tl0.eventCallback("onReverseComplete", () => finish(card));
+      tl0.eventCallback("onComplete", null);
+      tl0.timeScale(2).reverse();
+      return;
     }
-  }, [lock]);
+    tl0?.kill();
+    openTl.current = null;
+    gsap.killTweensOf(el.querySelectorAll(".detail-name *, .detail-inner > *"));
+
+    centreCard(card);
+    const cardArt = card?.querySelector(".card-art");
+    const toCard = !prefersReducedMotion() && onScreen(card) && onScreen(cardArt);
+    const tl = gsap.timeline({ onComplete: () => finish(card) });
+    tl.to(inner, { opacity: 0, duration: 0.15, ease: ease.out }, 0);
+
+    if (toCard) {
+      const box = cardArt.getBoundingClientRect();
+      const dotsUp = liveCanvas() && detailState.open;
+      placeFly(fly, box);
+      gsap.set(ink, { opacity: 0 });
+      gsap.set(light, { opacity: 1 });
+      const swapAt = dotsUp ? DET.collapseDots : 0;
+      if (dotsUp) {
+        // The dots fall back onto the card's printed dots (white on black)...
+        collapseDetailShape(dotsOnScreen(prog, box));
+        gsap.set(fly, { opacity: 0 });
+      } else gsap.set(fly, { opacity: 1 });
+      // ...then the print and the paper take over: the black sheet (identical to the canvas
+      // behind) shrinks onto the card and turns back to paper, the print back to ink.
+      tl.call(
+        () => {
+          gsap.set(fly, { opacity: 1 });
+          gsap.set(sheet, { opacity: 1 });
+          gsap.set(black, { opacity: 1 });
+          hideDetailShape();
+          lift(false);
+        },
+        null,
+        swapAt
+      );
+      const rest = Math.max(0.12, DET.collapse - swapAt);
+      tl.add(Flip.fit(sheet, card, { scale: true, duration: rest, ease: ease.inOut }), swapAt);
+      tl.to(black, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
+      tl.to(ink, { opacity: 1, duration: rest, ease: ease.inOut }, swapAt);
+      tl.to(light, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
+      tl.to(sheet, { opacity: 0, duration: 0.06, ease: "none" }, swapAt + rest - 0.06); // the card's own text returns
+    } else {
+      // Nothing to land on (reduced motion, card off screen): everything fades.
+      if (detailState.open) hideDetailShape({ fade: true });
+      gsap.set(fly, { opacity: 0 });
+      tl.to(sheet, { opacity: 0, duration: duration.base * 0.6, ease: ease.out }, 0);
+    }
+  }, [finish, program, setPhase]);
 
   /** Close from the UI: go Back if we added the history entry (popstate closes it), else close here. */
   const requestClose = useCallback(() => {
-    if (busy.current) return;
+    if (!phase.current || phase.current === "closing") return;
     if (pushed.current) {
       pushed.current = false;
       history.back();
@@ -205,22 +373,69 @@ export default function ProgramDetail() {
   /* ------------------------------------------------------ next / previous */
   const step = useCallback(
     (dir) => {
-      if (busy.current || !view.id || view.list.length < 2) return;
+      const el = panel.current;
+      if (phase.current !== "open" || !view.id || view.list.length < 2) return;
       const list = view.list;
       const next = list[(list.indexOf(view.id) + dir + list.length) % list.length];
+      const prog = programs.find((p) => p.id === next);
+
+      // The current name slides out (a ghost copy), whatever it was doing; earlier ghosts go at once.
+      el.querySelectorAll(".detail-ghost").forEach((g) => g.remove());
+      const old = el.querySelector(".detail-name");
+      if (old) {
+        gsap.killTweensOf(old.querySelectorAll("*"));
+        const ghost = old.cloneNode(true);
+        ghost.removeAttribute("id");
+        ghost.classList.add("detail-ghost");
+        ghost.setAttribute("aria-hidden", "true");
+        gsap.set(ghost, { position: "absolute", left: old.offsetLeft, top: old.offsetTop, width: old.offsetWidth, margin: 0 });
+        old.parentElement.appendChild(ghost);
+        const reduced = prefersReducedMotion();
+        gsap.to(ghost, {
+          ...(reduced ? {} : { yPercent: -70 }),
+          opacity: 0,
+          duration: DET.nameSlide * 0.7,
+          ease: ease.inOut,
+          onComplete: () => ghost.remove(),
+        });
+      }
+      // The shape: turbulence, then the next shape (from wherever the dots are now).
+      if (liveCanvas() && detailState.open) {
+        showDetailShape({
+          programId: next,
+          squad: prog.squad,
+          rect: el.querySelector(".detail-art").getBoundingClientRect(),
+          phase: "switch",
+        });
+      }
       returnTo.current = cardFor(next);
       history.replaceState(null, "", `#programs/${next}`);
-      setView({ id: next, list, switching: true });
+      setView({ id: next, list, first: false });
     },
     [view]
   );
 
   /* ------------------------------------------------ events and routing */
+  // A link opens a program after a short delay (the scroll lands first). Any newer
+  // open or close cancels that pending open, so it can never reopen a closed detail.
+  const cancelLink = () => clearTimeout(linkTimer.current);
+  const openFromLink = useCallback(
+    (id) => {
+      const card = cardFor(id);
+      centreCard(card);
+      jumpToPrograms(card);
+      cancelLink();
+      linkTimer.current = setTimeout(() => !phase.current && openNow(id, squadIdsOf(id), card), 450);
+    },
+    [openNow]
+  );
+
   useEffect(() => {
     // A card asks to open.
     const onOpen = (e) => {
       const { programId, list, returnTo: from } = e.detail;
-      if (isOpen.current || busy.current) return;
+      if (phase.current) return;
+      cancelLink();
       history.pushState(null, "", `#programs/${programId}`);
       pushed.current = true;
       openNow(programId, list, from);
@@ -228,11 +443,12 @@ export default function ProgramDetail() {
     // Browser Back / Forward, or a #programs link followed while on the page.
     const onPop = () => {
       const id = hashId();
-      if (id && !isOpen.current) {
+      cancelLink();
+      if (id && !phase.current) {
         pushed.current = false;
-        if (!sectionOnScreen()) jumpToPrograms(); // came from elsewhere in the story
-        openNow(id, squadIdsOf(id), cardFor(id));
-      } else if (!id && isOpen.current) {
+        if (!sectionOnScreen()) openFromLink(id);
+        else openNow(id, squadIdsOf(id), cardFor(id));
+      } else if (!id && phase.current) {
         pushed.current = false;
         closeNow();
       } else if (window.location.hash === "#programs" && !sectionOnScreen()) {
@@ -241,25 +457,26 @@ export default function ProgramDetail() {
     };
     window.addEventListener(DETAIL_EVENT, onOpen);
     window.addEventListener("popstate", onPop);
-
-    // Reload / shared link: #programs or #programs/<id>.
-    let cancelled = false;
-    if (window.location.hash.startsWith("#programs")) {
-      const go = () => {
-        if (cancelled) return;
-        jumpToPrograms();
-        const id = hashId();
-        if (id) setTimeout(() => !cancelled && openNow(id, squadIdsOf(id), cardFor(id)), 450);
-      };
-      // After the page has laid out and the scroll engine is running.
-      setTimeout(go, 600);
-    }
     return () => {
-      cancelled = true;
       window.removeEventListener(DETAIL_EVENT, onOpen);
       window.removeEventListener("popstate", onPop);
     };
-  }, [openNow, closeNow]);
+  }, [openNow, closeNow, openFromLink]);
+
+  // Reload / shared link (#programs or #programs/<id>): once, when the page has laid out.
+  useEffect(() => {
+    if (!window.location.hash.startsWith("#programs")) return;
+    const timer = setTimeout(() => {
+      const id = hashId();
+      if (id) openFromLink(id);
+      else jumpToPrograms();
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      cancelLink();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on mount only (openFromLink is stable)
+  }, []);
 
   // Keyboard: Escape closes, arrows move, Tab stays inside.
   useEffect(() => {
@@ -303,6 +520,8 @@ export default function ProgramDetail() {
   };
 
   const n = program ? numberOf(program.id) : 0;
+  // The print in flight is always the current program: the one opened, or the one closed on.
+  const flyId = view.id;
   // Rendered straight into <body> (a portal): the page wrapper is its own layer
   // (z-index 10), and the detail must sit above the lifted canvas (66).
   if (!host) return null;
@@ -318,6 +537,15 @@ export default function ProgramDetail() {
       onPointerUp={onPointerUp}
       style={program ? { "--squad": `var(--squad-${program.squad})` } : undefined}
     >
+      {/* The card's paper, grown to the screen; it turns black (and steps aside for the canvas). */}
+      <div className="detail-sheet" aria-hidden="true">
+        <div className="detail-sheet-black" />
+      </div>
+      {/* The card's printed shape in flight: ink on paper, white on black. */}
+      <div className="detail-fly" aria-hidden="true">
+        {flyId && <ShapeArt programId={flyId} className="fly-ink" />}
+        {flyId && <ShapeArt programId={flyId} className="fly-light" light />}
+      </div>
       {program && (
         <div className="detail-inner">
           <div className="detail-top">
@@ -337,13 +565,13 @@ export default function ProgramDetail() {
             <h2 id="detail-name" className="detail-name" key={program.id}>
               {program.name}
             </h2>
-            <p className="detail-squad detail-fade">
+            <p className="detail-squad">
               <span className="badge">
                 <Emblem squad={program.squad} />
               </span>
               {program.squad} squad
             </p>
-            <dl className="detail-facts detail-fade">
+            <dl className="detail-facts">
               {COPY.fields.map((f) => (
                 <div key={f.key}>
                   <dt>{f.label}</dt>
@@ -351,7 +579,7 @@ export default function ProgramDetail() {
                 </div>
               ))}
             </dl>
-            <button type="button" className="detail-register detail-fade" disabled aria-disabled="true">
+            <button type="button" className="detail-register" disabled aria-disabled="true">
               {COPY.register} <span>{COPY.registerSoon}</span>
             </button>
           </div>

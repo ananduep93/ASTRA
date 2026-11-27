@@ -7,13 +7,13 @@
 import { programs } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
 import { colors } from "@/lib/theme";
+import { HALFTONE } from "@/lib/halftone";
 
 /**
  * The halftone dot pattern, defined once on the page, in two inks: "ink"
  * (black, for the white paper cards) and "light" (white, on black: the detail).
- * Both use the same grid (lib/halftone.js reads these numbers too).
+ * The grid numbers live in lib/halftone.js (the detail's particles start on these dots).
  */
-export const HALFTONE = { cell: 3.4, radius: 1.05, angle: 30, viewBox: [-4, -4, 108, 108] };
 export function ShapeDefs() {
   return (
     <svg className="shape-defs" width="0" height="0" aria-hidden="true" focusable="false">

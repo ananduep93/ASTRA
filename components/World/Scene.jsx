@@ -234,7 +234,7 @@ export default function Scene({ tier = "high", debug = false }) {
         <WorldRig />
         <Backdrop />
         <HeroParticles count={cfg.particles} />
-        <ProgramField count={cfg.particles} />
+        <ProgramField count={cfg.particles} detailCount={cfg.detailParticles} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>

@@ -7,12 +7,15 @@
  *    ASTRA logo (sampled from the logo's transparency, same sampler as the
  *    headline).
  *  - PROGRAM DETAIL (time-driven, lib/detail.js): when a program card is
- *    expanded, its shape forms in front of the camera, inside the detail's art
- *    area. The dots arrive with the squad's signature (lib/motion.js):
+ *    expanded, the dots start EXACTLY on the card's printed halftone dots
+ *    (lib/halftone.js), burst a little outward, then converge into the shape
+ *    in front of the camera, with the squad's signature (lib/motion.js):
  *      Arts curling ink, Tech grid snap + scan line, Gaming pixel glitch
  *      (square dots), Business rise like bars, Fun confetti burst.
- *    Next / previous morphs straight from one shape into the next.
- *    One shape at a time, never one canvas per card.
+ *    Next / previous: a short turbulence melting straight into the next shape
+ *    (from wherever the dots are, so rapid presses never jump). Close: the
+ *    dots fall back onto the card's halftone dots. Only `detailCount` dots
+ *    are drawn for a detail (tier). One shape at a time, never one canvas per card.
  *
  * Shapes are drawn on a hidden canvas and sampled into target points; the
  * vertex shader moves every dot between two targets.
@@ -97,6 +100,46 @@ function cloudPoints(count, cx, cy) {
   return out;
 }
 
+/**
+ * Put the first `n` dots on printed halftone dots ({ xy: screen px, r: radius px }):
+ * every printed dot gets its share, spread inside its disc. Screen px -> plane units
+ * like fillTargets (the plane faces the camera, its centre at the screen's centre).
+ */
+function fillHalftone(out, n, halftone, wpp, rand) {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const { xy, r } = halftone;
+  const dots = xy.length / 2;
+  if (!dots) return;
+  for (let i = 0; i < n; i++) {
+    const k = (i % dots) * 2;
+    const a = rand() * Math.PI * 2;
+    const d = Math.sqrt(rand()) * r * 0.8;
+    out[i * 3] = (xy[k] + Math.cos(a) * d - W / 2) * wpp;
+    out[i * 3 + 1] = -(xy[k + 1] + Math.sin(a) * d - H / 2) * wpp;
+    out[i * 3 + 2] = 0;
+  }
+}
+
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** Turbulence level of a switch at morph progress m (same curve as the shader). */
+const turbCurve = (m) => Math.sin(Math.PI * Math.min(1, Math.max(0, m / 0.45)));
+
+/**
+ * Where the first `n` dots are now (CPU estimate of the shader's default path), so an
+ * interrupted morph (rapid next / previous, close) starts from there instead of jumping.
+ */
+function currentPoints(d, seed, n, m) {
+  const out = new Float32Array(d.to.length);
+  out.set(d.to);
+  for (let i = 0; i < n; i++) {
+    const st = Math.min(1, Math.max(0, (m - seed[i] * d.stagger) / (1 - d.stagger)));
+    const e = easeInOut(st);
+    for (let c = 0; c < 3; c++) out[i * 3 + c] = d.from[i * 3 + c] + (d.to[i * 3 + c] - d.from[i * 3 + c]) * e;
+  }
+  return out;
+}
+
 /** Shader parameters for each squad's signature, packed as vec4. */
 function signatureParams(squad, frame) {
   const s = journey.signatures[squad];
@@ -126,6 +169,10 @@ const vertexShader = /* glsl */ `
   uniform int uSig;         // 0 Arts, 1 Tech, 2 Gaming, 3 Business, 4 Fun
   uniform vec4 uSigParams;
   uniform float uAccentShare; // share of dots in the accent colour
+  uniform float uBurst;       // open: dots first fly this far outward from uCenter (world units)
+  uniform vec2 uCenter;
+  uniform float uTurb;        // switch: turbulence amplitude (world units)
+  uniform float uTurbStart;   // turbulence already there when this morph began (an interrupted switch)
 
   varying float vAlpha;
   varying float vAccent;
@@ -182,6 +229,20 @@ const vertexShader = /* glsl */ `
       p += vec3(sin(a + p.y * 2.0), cos(a * 1.3 + p.x * 2.0), sin(a * 0.7) * 0.3) * P.x * bump;
     }
 
+    // Open: a slight outward burst first (zero at the start: the dots begin exactly on the print).
+    float bm = clamp(uMorph / 0.55, 0.0, 1.0);
+    vec2 outward = aFrom.xy - uCenter;
+    float ol = length(outward);
+    p.xy += (ol > 1e-4 ? outward / ol : vec2(0.0)) * uBurst * sin(3.14159 * bm) * (0.6 + 0.8 * aSeed);
+
+    // Switch: a short turbulence that melts into the next shape (continues an interrupted one).
+    float tb = max(sin(3.14159 * clamp(uMorph / 0.45, 0.0, 1.0)), uTurbStart * (1.0 - smoothstep(0.0, 0.45, uMorph)));
+    p += vec3(
+      sin(aSeed * 91.0 + uTime * 6.0 + p.y * 3.0),
+      cos(aSeed * 57.0 + uTime * 5.0 + p.x * 3.0),
+      sin(aSeed * 23.0 + uTime * 4.0) * 0.5
+    ) * uTurb * tb;
+
     // Barely-there life while a shape holds (time-based).
     p += vec3(sin(uTime * 1.3 + aSeed * 40.0), cos(uTime * 1.1 + aSeed * 23.0), 0.0) * 0.006;
 
@@ -221,11 +282,13 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export default function ProgramField({ count }) {
+export default function ProgramField({ count, detailCount = count }) {
   const ref = useRef();
   const finale = useRef(null); // { scatter, logo } once sampled
   const mode = useRef(null); // "finale" | "detail" | null: which targets are in the buffers
-  const det = useRef({ version: -1, start: 0, duration: 1, last: null, alpha: 0, t: null });
+  // The detail's morph: from / to buffers, timing, and how it fades.
+  const det = useRef({ version: -1, active: false, phase: null, from: null, to: null, start: 0, duration: 1, stagger: F.stagger, alpha: 0, t: null, turb: 0 });
+  const nDetail = Math.min(count, detailCount);
 
   const data = useMemo(() => {
     const from = new Float32Array(count * 3);
@@ -253,6 +316,10 @@ export default function ProgramField({ count }) {
           uSig: { value: 0 },
           uSigParams: { value: new THREE.Vector4() },
           uAccentShare: { value: FIN.redShare },
+          uBurst: { value: 0 },
+          uCenter: { value: new THREE.Vector2() },
+          uTurb: { value: 0 },
+          uTurbStart: { value: 0 },
           uSquare: { value: 0 },
           uGlow: { value: 0 },
           uLight: { value: new THREE.Color(colors.white) },
@@ -318,45 +385,103 @@ export default function ProgramField({ count }) {
 
     /* ---- program detail: time-driven, in front of wherever the camera is ---- */
     const d = det.current;
-    if (detailState.open || d.alpha > 0.001) {
-      if (detailState.open && d.version !== detailState.version && detailState.rect) {
+    if (detailState.open || d.active) {
+      if (d.version !== detailState.version) {
         d.version = detailState.version;
-        const program = programs.find((p) => p.id === detailState.programId);
-        const squad = detailState.squad;
-        const next = sampleDetail(count, program, detailState.rect);
-        // The plane sits journey.viewDistance in front of the camera, facing it square-on.
-        const cam = state.camera;
-        pts.quaternion.copy(cam.quaternion);
-        pts.position.copy(cam.position).add(new THREE.Vector3(0, 0, -journey.viewDistance).applyQuaternion(cam.quaternion));
-        const from =
-          detailState.switching && d.last && mode.current === "detail"
-            ? d.last
-            : cloudPoints(count, next.frame.cx, next.frame.cy);
-        fill(pts, from, next.points);
-        d.last = next.points;
-        d.start = now;
-        d.duration = detailState.switching ? DET.switchForm : DET.form;
-        mode.current = "detail";
-        u.uSig.value = SQUADS.indexOf(squad);
-        u.uSigParams.value.fromArray(signatureParams(squad, next.frame));
-        u.uSquare.value = SQUARE_DOTS.includes(squad) ? 1 : 0;
-        u.uAccent.value.set(squadAccent(squad));
-        u.uAccentShare.value = DET.accentShare;
-        // On the black detail: additive blending and a faint halo (overlapping dots glow a little).
-        u.uGlow.value = DET.glow;
-        pts.material.blending = THREE.AdditiveBlending;
-        u.uSize.value = F.size;
-        u.uStagger.value = F.stagger;
+        const phase = detailState.phase;
+        if (!detailState.open) {
+          // Hidden: at once (the printed card took over), or fading (nothing to land on).
+          d.phase = phase === "fade" ? "fade" : null;
+          if (phase !== "fade") {
+            d.active = false;
+            d.alpha = 0;
+          }
+        } else {
+          const n = nDetail;
+          const wpp = localPerPx();
+          const m = Math.min(1, (now - d.start) / d.duration);
+          // Where the dots are right now (if a detail morph is on screen): interrupted moves start there.
+          const current = d.active && mode.current === "detail" && d.to ? currentPoints(d, data.seed, n, m) : null;
+          const turbNow = current && d.phase === "switch" ? Math.max(turbCurve(m), d.turb * (1 - Math.min(1, m / 0.45))) : 0;
+          if (phase === "open" || phase === "cloud" || !current) {
+            // The plane sits journey.viewDistance in front of the camera, facing it square-on.
+            const cam = state.camera;
+            pts.quaternion.copy(cam.quaternion);
+            pts.position.copy(cam.position).add(new THREE.Vector3(0, 0, -journey.viewDistance).applyQuaternion(cam.quaternion));
+          }
+          let from;
+          let to;
+          let sig = detailState.squad;
+          u.uBurst.value = 0;
+          u.uTurb.value = 0;
+          u.uTurbStart.value = 0;
+          d.turb = 0;
+          if (phase === "close") {
+            to = new Float32Array(count * 3);
+            fillHalftone(to, n, detailState.to, wpp, seededRandom(77));
+            from = current ?? to;
+            sig = null; // a plain, quick fall back onto the print
+            d.duration = DET.collapseDots;
+            d.stagger = 0.15;
+          } else {
+            const program = programs.find((p) => p.id === detailState.programId);
+            const next = sampleDetail(count, program, detailState.rect);
+            to = next.points;
+            u.uCenter.value.set(next.frame.cx, next.frame.cy);
+            u.uSigParams.value.fromArray(signatureParams(detailState.squad, next.frame));
+            d.stagger = F.stagger;
+            if (phase === "open" && detailState.from) {
+              from = new Float32Array(count * 3);
+              fillHalftone(from, n, detailState.from, wpp, seededRandom(55));
+              u.uBurst.value = DET.burst;
+              d.duration = DET.form;
+            } else if (phase === "switch" && current) {
+              from = current;
+              u.uTurb.value = DET.turbulence;
+              u.uTurbStart.value = turbNow;
+              d.turb = turbNow;
+              d.duration = DET.switchForm;
+            } else {
+              from = cloudPoints(count, next.frame.cx, next.frame.cy);
+              d.duration = DET.form * 2;
+            }
+          }
+          fill(pts, from, to);
+          Object.assign(d, { active: true, phase, from, to, start: now });
+          if (phase !== "cloud") d.alpha = 1; // the dots replace the printed dots in the same frame
+          mode.current = "detail";
+          pts.geometry.setDrawRange(0, n);
+          u.uSig.value = sig ? SQUADS.indexOf(sig) : 0;
+          if (!sig) u.uSigParams.value.set(0, 0, 0, 0);
+          u.uSquare.value = sig && SQUARE_DOTS.includes(sig) ? 1 : 0;
+          u.uAccent.value.set(squadAccent(detailState.squad));
+          u.uAccentShare.value = DET.accentShare;
+          u.uStagger.value = d.stagger;
+          // On the black detail: additive blending and a faint halo (overlapping dots glow a little).
+          u.uGlow.value = DET.glow;
+          pts.material.blending = THREE.AdditiveBlending;
+          u.uSize.value = F.size;
+        }
       }
-      // Fade in while open, out quickly once closed (time-based).
+      // Alpha: 1 while shown (cloud: eases in; fade: eases out), time-based.
       const dt = Math.min(0.1, now - (d.t ?? now));
       d.t = now;
-      d.alpha += ((detailState.open ? 1 : 0) - d.alpha) * (1 - Math.exp(-10 * dt));
-      if (!detailState.open && d.alpha < 0.01) d.alpha = 0;
+      if (d.phase === "cloud") d.alpha += (1 - d.alpha) * (1 - Math.exp(-10 * dt));
+      else if (d.phase === "fade") {
+        d.alpha += (0 - d.alpha) * (1 - Math.exp(-12 * dt));
+        if (d.alpha < 0.01) {
+          d.alpha = 0;
+          d.active = false;
+          d.phase = null;
+        }
+      }
       u.uAlpha.value = d.alpha;
       u.uMorph.value = Math.min(1, (now - d.start) / d.duration);
       pts.visible = d.alpha > 0.001;
-      return;
+      detailState.shown = d.version; // this change is in the frame being drawn now
+      if (d.active) return;
+      pts.geometry.setDrawRange(0, Infinity);
+      mode.current = null; // the finale refills its buffers when it is next needed
     }
 
     /* ---- finale: scroll-driven, scattered dots gather into the logo ---- */
@@ -368,6 +493,10 @@ export default function ProgramField({ count }) {
     }
     if (mode.current !== "finale") {
       fill(pts, finale.current.scatter, finale.current.logo);
+      pts.geometry.setDrawRange(0, Infinity);
+      u.uBurst.value = 0;
+      u.uTurb.value = 0;
+      u.uTurbStart.value = 0;
       pts.position.set(...FIN.center);
       pts.quaternion.identity(); // the finale camera looks straight down -z at the logo
       u.uSig.value = 0; // the curling path, with the finale's own settings
