@@ -2,74 +2,753 @@
 @import "lenis/dist/lenis.css";
 
 /*
- * Token VALUES live in lib/theme.js and arrive as --astra-* variables on :root
- * (injected by app/layout.js). This block only maps them to Tailwind names,
- * so utilities like bg-ink, text-paper, font-display, text-h1, p-gutter work.
+ * Design B ("The Issue"). Token VALUES live in lib/theme.js and arrive as CSS
+ * variables on :root (injected by app/layout.js). Three colours only: paper,
+ * ink, red. Red is for spot highlights, never body text.
  */
 @theme inline {
-  --color-ink: var(--astra-black);
-  --color-paper: var(--astra-white);
-  --color-signal: var(--astra-red); /* glows and shapes only */
-
-  --font-display: var(--astra-font-display);
-  --font-body: var(--astra-font-body);
-
-  --text-small: var(--astra-text-small);
-  --text-body: var(--astra-text-body);
-  --text-lead: var(--astra-text-lead);
-  --text-h3: var(--astra-text-h3);
-  --text-h2: var(--astra-text-h2);
-  --text-h1: var(--astra-text-h1);
-  --text-display: var(--astra-text-display);
-
-  --spacing-3xs: var(--astra-space-3xs);
-  --spacing-2xs: var(--astra-space-2xs);
-  --spacing-xs: var(--astra-space-xs);
-  --spacing-sm: var(--astra-space-sm);
-  --spacing-md: var(--astra-space-md);
-  --spacing-lg: var(--astra-space-lg);
-  --spacing-xl: var(--astra-space-xl);
-  --spacing-2xl: var(--astra-space-2xl);
-  --spacing-gutter: var(--astra-space-gutter);
-
-  --ease-out: var(--astra-ease-out);
-  --ease-in-out: var(--astra-ease-inOut);
-  --ease-expo: var(--astra-ease-expo);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-red: var(--red);
+  --font-display: var(--font-display-face);
+  --font-mono: var(--font-mono-face);
 }
 
+/* ------------------------------------------------------------------- base */
 @layer base {
   html {
-    background: var(--astra-black);
-    color-scheme: dark;
+    background: var(--paper);
+    color: var(--ink);
+    color-scheme: light;
+    scrollbar-gutter: stable; /* locking scroll (menu, sheet) never shifts the layout */
   }
-
   body {
-    background: var(--astra-black);
-    color: var(--astra-white);
-    font-family: var(--astra-font-body);
-    font-size: var(--astra-text-body);
-    line-height: var(--astra-lh-body);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-mono-face);
+    font-size: var(--text-body-size);
+    line-height: var(--lh-body);
     overflow-x: clip; /* never allow sideways scroll */
     -webkit-font-smoothing: antialiased;
   }
-
   h1,
   h2,
   h3 {
-    font-family: var(--astra-font-display);
-    line-height: var(--astra-lh-heading);
+    font-family: var(--font-display-face);
     font-weight: 800;
+    line-height: var(--lh-heading);
   }
-
   ::selection {
-    background: var(--astra-white);
-    color: var(--astra-black);
+    background: var(--ink);
+    color: var(--paper);
   }
-
   :focus-visible {
-    outline: 2px solid var(--astra-white);
+    outline: 3px solid var(--red);
     outline-offset: 3px;
   }
+  button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* ----------------------------------------------------- comic devices */
+/* Halftone dots (red spot shading). */
+.halftone-red {
+  background: radial-gradient(circle, var(--red) var(--halftone-dot), transparent calc(var(--halftone-dot) + 1.5%)) 0 0 /
+    var(--halftone) var(--halftone);
+}
+
+/* A panel: thick ink border on paper. */
+.panel {
+  position: relative;
+  overflow: hidden;
+  border: var(--outline) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper) var(--grain-image);
+}
+.panel .art {
+  position: absolute;
+  inset: 12% 6% 6%;
+  width: 88%;
+  height: 82%;
+}
+
+/* Caption box: typewriter text in a bordered box. */
+.caption {
+  font-family: var(--font-mono-face);
+  font-size: var(--text-caption-size);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+.panel .caption {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  max-width: 78%;
+  padding: 0.35rem 0.6rem;
+  border-right: var(--outline) solid var(--ink);
+  border-bottom: var(--outline) solid var(--ink);
+  background: var(--paper);
+}
+
+/* Speech bubble: round, ink outline, a tail at the bottom left. */
+.bubble {
+  position: absolute;
+  top: 14%;
+  right: 6%;
+  z-index: 2;
+  max-width: 62%;
+  padding: 0.7rem 1rem;
+  border: var(--outline) solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-family: var(--font-display-face);
+  font-size: var(--text-lead-size);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+.bubble::after {
+  position: absolute;
+  bottom: -14px;
+  left: 22%;
+  width: 18px;
+  height: 18px;
+  border-right: var(--outline) solid var(--ink);
+  border-bottom: var(--outline) solid var(--ink);
+  background: var(--paper);
+  content: "";
+  transform: skewX(30deg) rotate(45deg);
+}
+
+/* Invented sound words: red fill, ink outline, tilted. */
+.sound {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-display-face);
+  font-size: var(--text-h3-size);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--red);
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  letter-spacing: 0.02em;
+  transform: rotate(-8deg);
+}
+.panel .sound {
+  bottom: 8%;
+  left: 6%;
+}
+
+/* A shout over a burst. */
+.shout {
+  position: absolute;
+  inset: auto 8% 12%;
+  z-index: 2;
+  font-family: var(--font-display-face);
+  font-size: var(--text-h3-size);
+  font-weight: 800;
+  line-height: 0.95;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------- the stage */
+:root {
+  --hud-clear: 64px; /* room for the logo mark and menu button */
+}
+.issue-spacer {
+  height: var(--issue-vh);
+}
+@media (pointer: coarse) {
+  .issue-spacer {
+    height: calc(var(--issue-vh) * var(--touch-length));
+  }
+}
+.issue-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+.page {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--paper) var(--grain-image);
+  transform-origin: 0 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+.page-cover {
+  visibility: visible; /* the first thing on screen, before any script */
+}
+/* Moving pages: the content moves inside a window that starts below the HUD badges. */
+.page-window {
+  position: absolute;
+  inset: var(--hud-clear) 0 0;
+  overflow: hidden;
+}
+.page-inner {
+  position: relative;
+  padding: 4px var(--space-gutter) var(--space-gutter);
+}
+
+/* ----------------------------------------------------------------- cover */
+.cover-inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: var(--space-2xs);
+  padding: calc(var(--hud-clear) + 2px) var(--space-gutter) var(--space-gutter);
+}
+.cover-masthead,
+.cover-strap,
+.cover-art,
+.cover-tagline {
+  grid-column: 1 / -1;
+}
+.cover-masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 var(--space-2xs);
+}
+.cover-title {
+  font-size: min(var(--text-masthead-size), 26vw);
+  line-height: 0.8;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+}
+.cover-issue {
+  align-self: flex-start;
+  margin-top: 0.4em;
+  padding: 0.1em 0.3em;
+  border: var(--outline) solid var(--ink);
+  background: var(--red);
+  color: var(--paper);
+  font-size: var(--text-h3-size);
+  line-height: 1;
+  transform: rotate(-4deg);
+}
+.cover-strap {
+  text-transform: uppercase;
+}
+.cover-art {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  place-items: center;
+}
+.cover-burst {
+  position: absolute;
+  width: min(78vw, 46svh);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.cover-logo {
+  position: relative;
+  width: min(58vw, 34svh);
+  height: auto;
+}
+.cover-sound {
+  top: 4%;
+  right: 2%;
+}
+.cover-tagline {
+  justify-self: start;
+  padding: 0.2em 0.5em;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-display-face);
+  font-size: var(--text-h3-size);
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+.cover-college {
+  align-self: end;
+  padding: 0.35rem 0.6rem;
+  border: var(--outline) solid var(--ink);
+  background: var(--paper);
+}
+/* The small panel the reader zooms into: bottom right, next to the college caption. */
+.cover-inset {
+  width: min(40vw, 280px);
+  aspect-ratio: 4 / 3;
+}
+.cover-inset .caption-inset {
+  max-width: 100%;
+}
+@media (min-width: 900px) {
+  .cover-inner {
+    grid-template-columns: 1.1fr 1fr;
+    grid-template-rows: auto 1fr auto auto;
+    column-gap: var(--space-lg);
+    row-gap: var(--space-xs);
+  }
+  .cover-tagline {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    margin-bottom: var(--space-xs);
+    font-size: var(--text-h2-size);
+  }
+  .cover-strap {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .cover-college {
+    grid-column: 1;
+    grid-row: 4;
+    justify-self: start;
+    max-width: 30rem;
+  }
+  .cover-art {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .cover-inset {
+    grid-column: 2;
+    grid-row: 3 / span 2;
+    justify-self: end;
+    width: min(22vw, 30svh * 1.33);
+  }
+  .cover-burst {
+    width: min(40vw, 58svh);
+  }
+  .cover-logo {
+    width: min(30vw, 40svh);
+  }
+}
+
+/* ----------------------------------------------------------- opening page */
+.panel-grid-opening {
+  display: grid;
+  gap: var(--panel-gap);
+}
+.opening-panel {
+  height: 46svh;
+}
+.opening-roster {
+  background: var(--ink);
+  color: var(--paper);
+}
+.opening-roster .caption {
+  border-color: var(--paper);
+  background: var(--ink);
+  color: var(--paper);
+}
+.roster {
+  position: absolute;
+  inset: 18% 6% 8%;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  list-style: none;
+}
+.roster-tag {
+  padding: 0.25em 0.55em;
+  border: var(--outline) solid var(--paper);
+  font-family: var(--font-display-face);
+  font-size: var(--text-lead-size);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.roster-tag-first {
+  border-color: var(--ink);
+  background: var(--red);
+  color: var(--paper);
+  transform: rotate(-3deg);
+}
+@media (min-width: 900px) {
+  .panel-grid-opening {
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: 1fr 1fr;
+    height: calc(100svh - var(--hud-clear) - 4px - var(--space-gutter));
+  }
+  .opening-panel {
+    height: auto;
+  }
+  .opening-panel:nth-child(1),
+  .opening-panel:nth-child(4) {
+    grid-column: span 4;
+  }
+  .opening-panel:nth-child(2),
+  .opening-panel:nth-child(3) {
+    grid-column: span 2;
+  }
+}
+
+/* ----------------------------------------------------------------- splash */
+.page-splash {
+  background: var(--ink);
+  color: var(--paper);
+}
+.splash-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: calc(var(--hud-clear) + 4px) var(--space-gutter) var(--space-gutter);
+}
+.splash-burst {
+  position: absolute;
+  top: 50%;
+  right: -10%;
+  width: min(110vw, 80svh);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0.9;
+  transform: translateY(-50%);
+}
+.splash-label {
+  position: relative;
+  align-self: flex-start;
+  padding: 0.35rem 0.6rem;
+  background: var(--paper);
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.splash-name {
+  position: relative;
+  overflow: hidden; /* the name rises out of this mask */
+  font-size: min(42vw, 36svh);
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+.splash-name-line {
+  display: block;
+}
+.splash-sound {
+  position: relative;
+  align-self: flex-end;
+  font-size: var(--text-h2-size);
+  -webkit-text-stroke: 2px var(--paper);
+}
+.splash-caption {
+  position: relative;
+  max-width: 34rem;
+  padding: 0.5rem 0.7rem;
+  border: var(--outline) solid var(--paper);
+  background: var(--ink);
+  font-size: max(1rem, var(--text-caption-size));
+}
+
+/* ------------------------------------------------------------ Arts files */
+.page-arts {
+  border-top: var(--outline) solid var(--ink);
+}
+.files-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.files-label {
+  padding: 0.25rem 0.5rem;
+  border: var(--outline) solid var(--ink);
+  text-transform: uppercase;
+}
+.files-title {
+  flex-basis: 100%;
+  font-size: var(--text-h2-size);
+  text-transform: uppercase;
+}
+.files-hint {
+  font-weight: 400;
+}
+.panel-grid-files {
+  display: grid;
+  gap: var(--panel-gap);
+  list-style: none;
+}
+.file-panel {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.file-panel .art {
+  inset: 6% 6% 22%;
+  height: 72%;
+}
+.file-panel .file-name {
+  top: auto;
+  bottom: 0;
+  max-width: 100%;
+  border-top: var(--outline) solid var(--ink);
+  border-bottom: 0;
+  font-family: var(--font-display-face);
+  font-size: var(--text-lead-size);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.next-panel {
+  margin-top: var(--panel-gap);
+  padding: var(--space-sm) var(--space-md);
+}
+.next-panel.caption {
+  font-size: var(--text-lead-size);
+}
+@media (min-width: 600px) {
+  .panel-grid-files {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1000px) {
+  .panel-grid-files {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* -------------------------------------------------------------------- HUD */
+/* Logo mark and menu button: small paper badges with an ink outline, readable on paper and ink pages. */
+.hud-mark,
+.menu-button {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  z-index: 60;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 3px solid var(--ink);
+  background: var(--paper);
+}
+.hud-mark {
+  left: max(10px, env(safe-area-inset-left));
+}
+.hud-mark img {
+  width: 32px;
+  height: auto;
+}
+.menu-button {
+  right: max(10px, env(safe-area-inset-right));
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-line {
+  grid-area: 1 / 1;
+  width: 22px;
+  height: 3px;
+  background: var(--ink);
+  transition: transform var(--dur-fast) var(--ease-inOut-fn);
+}
+.menu-line:first-child {
+  transform: translateY(-4px);
+}
+.menu-line:last-child {
+  transform: translateY(4px);
+}
+.menu-button[aria-expanded="true"] .menu-line:first-child {
+  transform: rotate(45deg);
+}
+.menu-button[aria-expanded="true"] .menu-line:last-child {
+  transform: rotate(-45deg);
+}
+
+/* Contents overlay: ink page, opens as a circle from the button. */
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  padding: calc(var(--hud-clear) + 8px) var(--space-gutter) var(--space-md);
+  overflow-y: auto;
+  background: var(--ink);
+  color: var(--paper);
+  visibility: hidden;
+}
+.menu-overlay nav {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+}
+.menu-title {
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+}
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: min(1.4svh, 0.75rem);
+  list-style: none;
+}
+.menu-item {
+  position: relative;
+  display: flex;
+  min-height: 44px;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+.menu-item::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 5px;
+  height: 70%;
+  background: var(--red);
+  content: "";
+  transform: translateY(-50%) scaleY(0);
+}
+.menu-item[aria-current="true"]::before {
+  transform: translateY(-50%) scaleY(1);
+}
+.menu-num {
+  flex: none;
+  font-size: var(--text-caption-size);
+  opacity: 0.7;
+}
+.menu-label {
+  font-family: var(--font-display-face);
+  font-size: min(var(--text-h3-size), 6.5svh, 9vw);
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.menu-item-soon {
+  opacity: 0.45;
+}
+.menu-soon {
+  font-weight: 400;
+}
+
+/* ---------------------------------------------------------- detail sheet */
+.sheet {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+.sheet::backdrop {
+  background: transparent;
+}
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.sheet-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  width: min(32rem, calc(100% - 2.5rem));
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-gutter);
+  overflow-y: auto;
+  border-left: var(--outline) solid var(--ink);
+  background: var(--paper) var(--grain-image);
+}
+.sheet-close {
+  align-self: flex-end;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 0.8rem;
+  border: 3px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--font-mono-face);
+  font-weight: 700;
+  cursor: pointer;
+}
+.sheet-label {
+  text-transform: uppercase;
+}
+.sheet-title {
+  font-size: var(--text-h2-size);
+  text-transform: uppercase;
+}
+.sheet-squad {
+  font-weight: 400;
+}
+.sheet-art {
+  flex: none;
+  aspect-ratio: 4 / 3;
+}
+.sheet-facts {
+  display: grid;
+  gap: var(--space-2xs);
+}
+.sheet-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-2xs);
+  border-bottom: 2px solid var(--ink);
+  font-size: max(1rem, var(--text-caption-size));
+}
+.sheet-facts dt {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.sheet-register {
+  min-height: 48px;
+  margin-top: auto;
+  padding: 0.75rem 1rem;
+  border: 3px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-display-face);
+  font-weight: 800;
+  text-transform: uppercase;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+html:has(.sheet[open]) {
+  overflow: hidden;
+}
+
+/* --------------------------------------------------- no JavaScript: stack */
+.no-js .issue-spacer {
+  display: none;
+}
+.no-js .issue-stage {
+  position: static;
+  overflow: visible;
+}
+.no-js .page {
+  position: relative;
+  inset: auto;
+  min-height: 100svh;
+  visibility: visible;
+}
+.no-js .menu-button {
+  display: none;
+}
+.no-js .page-window {
+  position: relative;
+  inset: auto;
+  padding-top: var(--hud-clear);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -78,7 +757,7 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: var(--astra-dur-fast) !important;
+    transition-duration: var(--dur-fast) !important;
     transition-property: opacity !important;
     scroll-behavior: auto !important;
   }
