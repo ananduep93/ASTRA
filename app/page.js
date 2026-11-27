@@ -11,7 +11,7 @@ import Finale from "@/components/Story/Finale";
 import Hud from "@/components/HUD/Hud";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
 import Menu from "@/components/Menu/Menu";
-import { HERO_END } from "@/lib/journey";
+import { PROGRAMS_AT } from "@/lib/journey";
 import { finale as FIN, touchScroll } from "@/lib/motion";
 
 /** Scroll room for a fixed part of the story (removed in static mode). Touch screens get more (CSS, no reload jump). */
@@ -31,7 +31,7 @@ export default function Home() {
       <main>
         <HeroTitle />
         <Transmission />
-        <Spacer vh={HERO_END} />
+        <Spacer vh={PROGRAMS_AT} />
         <Programs />
         <Spacer vh={FIN.vh} />
         <Finale />

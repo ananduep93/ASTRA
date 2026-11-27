@@ -14,6 +14,7 @@ export const worldUniforms = {
   uResolution: { value: new THREE.Vector2(1, 1) }, // drawing buffer size in pixels
   // Star-iris (the hero's change only): 1 = open through the logo silhouette instead of a circle.
   uIris: { value: 0 },
+  uFade: { value: 0 }, // 1 = the whole screen blends evenly (the flash fading to black), no shape
   uIrisTex: { value: null }, // public/brand/astra-iris.png, loaded by Scene.jsx
   uIrisAspect: { value: brand.irisSize[0] / brand.irisSize[1] },
 };
@@ -38,6 +39,7 @@ export const bgMaskGLSL = /* glsl */ `
   uniform float uMix;
   uniform vec2 uResolution;
   uniform float uIris;
+  uniform float uFade;
   uniform sampler2D uIrisTex;
   uniform float uIrisAspect;
 
@@ -67,6 +69,7 @@ export const bgMaskGLSL = /* glsl */ `
   }
 
   float bgWhite(vec2 fragCoord) {
+    if (uFade > 0.5) return mix(uFromW, uToW, uMix); // an even fade, no shape
     vec2 uv = screenUv(fragCoord);
     float m;
     if (uIris > 0.5) {

@@ -6,28 +6,51 @@
  */
 import { programs } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
+import { colors } from "@/lib/theme";
 
-/** The halftone dot pattern, defined once on the page (its dots take the text colour of its <svg>). */
+/**
+ * The halftone dot pattern, defined once on the page, in two inks: "ink"
+ * (black, for the white paper cards) and "light" (white, on black: the detail).
+ * Both use the same grid (lib/halftone.js reads these numbers too).
+ */
+export const HALFTONE = { cell: 3.4, radius: 1.05, angle: 30, viewBox: [-4, -4, 108, 108] };
 export function ShapeDefs() {
   return (
     <svg className="shape-defs" width="0" height="0" aria-hidden="true" focusable="false">
       <defs>
-        <pattern id="ht-shape" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-          <circle cx="1.7" cy="1.7" r="1.05" fill="currentColor" />
-        </pattern>
+        {[
+          ["ht-shape", colors.black],
+          ["ht-shape-light", colors.white],
+        ].map(([id, fill]) => (
+          <pattern
+            key={id}
+            id={id}
+            width={HALFTONE.cell}
+            height={HALFTONE.cell}
+            patternUnits="userSpaceOnUse"
+            patternTransform={`rotate(${HALFTONE.angle})`}
+          >
+            <circle cx={HALFTONE.cell / 2} cy={HALFTONE.cell / 2} r={HALFTONE.radius} fill={fill} />
+          </pattern>
+        ))}
       </defs>
     </svg>
   );
 }
 
-export default function ShapeArt({ programId, className = "" }) {
+export default function ShapeArt({ programId, className = "", light = false }) {
   const program = programs.find((p) => p.id === programId);
   const shape = program && SHAPES[shapeFor(program)];
   if (!shape) return null;
   return (
-    <svg className={`shape-art ${className}`} viewBox="-4 -4 108 108" aria-hidden="true" focusable="false">
+    <svg className={`shape-art ${className}`} viewBox={HALFTONE.viewBox.join(" ")} aria-hidden="true" focusable="false">
       {(shape.parts ?? [shape]).map((part, k) => (
-        <path key={k} d={part.d} fill="url(#ht-shape)" fillRule={part.rule === "evenodd" ? "evenodd" : "nonzero"} />
+        <path
+          key={k}
+          d={part.d}
+          fill={light ? "url(#ht-shape-light)" : "url(#ht-shape)"}
+          fillRule={part.rule === "evenodd" ? "evenodd" : "nonzero"}
+        />
       ))}
     </svg>
   );

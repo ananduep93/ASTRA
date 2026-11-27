@@ -17,7 +17,7 @@
  * each shape drifts a little with the rail (transform + opacity, one rAF).
  *
  * Every reveal is state-based (never resting half-clipped) and waits for the
- * star-iris to finish (transitionDone), then follows real screen positions.
+ * star-iris flash to fade half way (programsRevealed), then follows real screen positions.
  * Each card is a real button: it opens the program detail (prev / next stay
  * within its squad). The section also publishes its scroll boundaries
  * (a ScrollTrigger on this element) for the scroll map.
@@ -30,7 +30,7 @@ import { useGSAP } from "@gsap/react";
 import { programs, SQUADS, programsBySquad } from "@/data/programs";
 import { programsCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, programs as PGM, prefersReducedMotion } from "@/lib/motion";
-import { setLayout, transitionDone } from "@/lib/journey";
+import { setLayout, transitionDone, programsRevealed } from "@/lib/journey";
 import { stateReveal } from "@/lib/reveal";
 import { openDetail } from "@/lib/detail";
 import { numberOf, TOTAL } from "@/lib/programOrder";
@@ -278,10 +278,12 @@ export default function Programs() {
           return;
         }
         const vh = window.innerHeight;
-        // Nothing of the section shows before the star-iris has finished (the scene may
-        // still be catching up after a fast flick); then real screen positions decide.
-        const ready = transitionDone();
-        if (el.dataset.ready !== String(ready)) el.dataset.ready = String(ready);
+        // The section is see-through until the flash has faded to black (the fade shows
+        // behind it), and nothing in it reveals before the fade is half way (white type
+        // on a dark enough background); then real screen positions decide.
+        const black = transitionDone();
+        if (el.dataset.ready !== String(black)) el.dataset.ready = String(black);
+        const ready = programsRevealed();
         headR.set(ready && el.querySelector(".programs-head").getBoundingClientRect().top < vh * PGM.headAt);
         rows.forEach(({ row, r }) => r.set(ready && row.getBoundingClientRect().top < vh * PGM.revealAt));
       };

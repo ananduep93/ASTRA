@@ -331,7 +331,7 @@ export default function ProgramDetail() {
           </div>
           {/* The shape forms from dots here (canvas); the static halftone shape without a canvas. */}
           <div className="detail-art" aria-hidden="true">
-            <ShapeArt programId={program.id} className="detail-static-art" />
+            <ShapeArt programId={program.id} className="detail-static-art" light />
           </div>
           <div className="detail-info">
             <h2 id="detail-name" className="detail-name" key={program.id}>

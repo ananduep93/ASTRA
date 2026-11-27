@@ -88,6 +88,7 @@ function WorldRig() {
     worldUniforms.uMix.value = tone.mix;
     // Star-iris only once its mask has loaded (until then the plain circle is used).
     worldUniforms.uIris.value = tone.iris && worldUniforms.uIrisTex.value ? 1 : 0;
+    worldUniforms.uFade.value = tone.fade ? 1 : 0;
     state.gl.getDrawingBufferSize(worldUniforms.uResolution.value);
   });
   return null;

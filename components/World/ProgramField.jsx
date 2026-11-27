@@ -200,6 +200,7 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uDark;
   uniform vec3 uAccent;
   uniform float uSquare;    // 1 = square, pixel-like dots
+  uniform float uGlow;      // 0 = plain dot; > 0 = a smaller core with a faint soft halo (detail, additive)
   varying float vAlpha;
   varying float vAccent;
   varying float vBoost;
@@ -208,7 +209,10 @@ const fragmentShader = /* glsl */ `
   void main() {
     vec2 c = abs(gl_PointCoord - 0.5);
     float d = mix(length(c), max(c.x, c.y), uSquare);
-    float a = mix(smoothstep(0.5, 0.12, d), step(d, 0.42), uSquare) * vAlpha;
+    float dotA = uGlow > 0.0
+      ? smoothstep(0.34, 0.1, d) + uGlow * (1.0 - smoothstep(0.0, 0.5, d)) * 0.5
+      : smoothstep(0.5, 0.12, d);
+    float a = mix(dotA, step(d, 0.42), uSquare) * vAlpha;
     if (a < 0.01) discard;
     vec3 col = mix(uLight, uDark, bgWhite(gl_FragCoord.xy)); // opposite of the background
     col = mix(col, uAccent, vAccent);
@@ -250,6 +254,7 @@ export default function ProgramField({ count }) {
           uSigParams: { value: new THREE.Vector4() },
           uAccentShare: { value: FIN.redShare },
           uSquare: { value: 0 },
+          uGlow: { value: 0 },
           uLight: { value: new THREE.Color(colors.white) },
           uDark: { value: new THREE.Color(colors.black) },
           uAccent: { value: RED.clone() },
@@ -337,6 +342,9 @@ export default function ProgramField({ count }) {
         u.uSquare.value = SQUARE_DOTS.includes(squad) ? 1 : 0;
         u.uAccent.value.set(squadAccent(squad));
         u.uAccentShare.value = DET.accentShare;
+        // On the black detail: additive blending and a faint halo (overlapping dots glow a little).
+        u.uGlow.value = DET.glow;
+        pts.material.blending = THREE.AdditiveBlending;
         u.uSize.value = F.size;
         u.uStagger.value = F.stagger;
       }
@@ -365,6 +373,8 @@ export default function ProgramField({ count }) {
       u.uSig.value = 0; // the curling path, with the finale's own settings
       u.uSigParams.value.set(FIN.mergePath[0], FIN.mergePath[1], 0, 0);
       u.uSquare.value = 0;
+      u.uGlow.value = 0;
+      pts.material.blending = THREE.NormalBlending;
       u.uAccent.value.copy(RED);
       u.uAccentShare.value = FIN.redShare;
       u.uSize.value = FIN.size;
