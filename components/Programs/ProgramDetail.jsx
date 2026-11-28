@@ -169,6 +169,7 @@ export default function ProgramDetail() {
   const parts = (el) => ({
     sheet: el.querySelector(".detail-sheet"),
     black: el.querySelector(".detail-sheet-black"),
+    paper: el.querySelector(".detail-sheet-card"),
     fly: el.querySelector(".detail-fly"),
     ink: el.querySelector(".fly-ink"),
     light: el.querySelector(".fly-light"),
@@ -191,7 +192,7 @@ export default function ProgramDetail() {
     if (!view.id || !el) return;
     const prog = programs.find((p) => p.id === view.id);
     const reduced = prefersReducedMotion();
-    const { sheet, black, fly, ink, light, inner, art } = parts(el);
+    const { sheet, black, paper, fly, ink, light, inner, art } = parts(el);
 
     split.current?.revert();
     split.current = SplitText.create(el.querySelector(".detail-name"), { type: "lines", mask: "lines" });
@@ -243,19 +244,24 @@ export default function ProgramDetail() {
       // 0: the other cards slide out sideways and fade; the tapped card lifts.
       tl.to(sib.before, { xPercent: -60, opacity: 0, duration: DET.slide, ease: ease.inOut }, 0);
       tl.to(sib.after, { xPercent: 60, opacity: 0, duration: DET.slide, ease: ease.inOut }, 0);
-      Flip.fit(sheet, card, { scale: true }); // the sheet sits exactly on the card: its colour, its cut
+      Flip.fit(sheet, card, { scale: true }); // the sheet sits exactly on the card: its surface, its cut
       gsap.set(sheet, { opacity: 0, clipPath: cutPolygon(sx, sy) });
       gsap.set(black, { opacity: 0 });
-      Flip.fit(fly, cardArt, { scale: true }); // the card's print, ink on the colour
+      gsap.set(paper, { opacity: 1 }); // the dark card surface, over the squad colour
+      Flip.fit(fly, cardArt, { scale: true }); // the card's white print
       gsap.set(fly, { opacity: 1 });
-      gsap.set(ink, { opacity: 1 });
-      gsap.set(light, { opacity: 0 });
+      gsap.set(ink, { opacity: 0 });
+      gsap.set(light, { opacity: 1 });
       tl.to(sheet, { opacity: 1, duration: 0.06, ease: "none" }, 0); // the card's own type gives way
       tl.to([sheet, fly], { y: "-=14", duration: DET.lift, ease: ease.out }, 0);
-      // Then its colour floods the screen (the cut opens up), the print flies to the art area...
+      // Then the squad colour floods the screen (the cut opens up, the dark surface gives
+      // way to the colour), the print flies to the art area and turns to ink on the colour...
       tl.to(sheet, { x: 0, y: 0, scaleX: 1, scaleY: 1, clipPath: cutPolygon(1, 1, 1), duration: DET.expand, ease: ease.inOut }, DET.lift);
+      tl.to(paper, { opacity: 0, duration: DET.expand, ease: ease.inOut }, DET.lift);
       tl.to(fly, { x: 0, y: 0, scaleX: 1, scaleY: 1, duration: DET.expand, ease: ease.inOut }, DET.lift);
-      // ...and the colour drains to black while the print turns white.
+      tl.to(light, { opacity: 0, duration: DET.expand * 0.6, ease: ease.inOut }, DET.lift);
+      tl.to(ink, { opacity: 1, duration: DET.expand * 0.6, ease: ease.inOut }, DET.lift);
+      // ...then the colour drains to black while the print turns white again.
       const drainAt = DET.lift + DET.expand;
       tl.to(black, { opacity: 1, duration: DET.drain, ease: ease.inOut }, drainAt);
       tl.to(ink, { opacity: 0, duration: DET.drain, ease: ease.inOut }, drainAt);
@@ -311,10 +317,10 @@ export default function ProgramDetail() {
   const finish = useCallback(
     (card) => {
       const el = panel.current;
-      const { sheet, black, fly, ink, light, inner } = parts(el);
+      const { sheet, black, paper, fly, ink, light, inner } = parts(el);
       stopWait.current?.();
       el.hidden = true;
-      gsap.set([sheet, black, fly, ink, light, inner], { clearProps: "all" });
+      gsap.set([sheet, black, paper, fly, ink, light, inner], { clearProps: "all" });
       const { all } = siblings(card);
       if (all.length) gsap.set(all, { xPercent: 0, clearProps: "opacity" });
       lift(false);
@@ -337,7 +343,7 @@ export default function ProgramDetail() {
     clearTimeout(linkTimer.current);
     setPhase("closing");
     stopWait.current?.();
-    const { sheet, black, fly, ink, light, inner } = parts(el);
+    const { sheet, black, paper, fly, ink, light, inner } = parts(el);
     const card = returnTo.current;
     const prog = programs.find((p) => p.id === card?.dataset.id) ?? program;
     const tl0 = openTl.current;
@@ -381,6 +387,7 @@ export default function ProgramDetail() {
           gsap.set(fly, { opacity: 1 });
           gsap.set(sheet, { opacity: 1 });
           gsap.set(black, { opacity: 1 });
+          gsap.set(paper, { opacity: 0 });
           hideDetailShape();
           lift(false);
         },
@@ -388,15 +395,14 @@ export default function ProgramDetail() {
         swapAt
       );
       const rest = Math.max(0.12, DET.collapse - swapAt);
-      // The black sheet shrinks into the card's slot, its cut closing again, and turns back
-      // into the squad colour; the print back to ink; the other cards slide back in.
+      // The black sheet shrinks into the card's slot, its cut closing again: black -> the squad
+      // colour -> the dark card surface; the print stays white; the other cards slide back in.
       const cr = card.getBoundingClientRect();
       gsap.set(sheet, { clipPath: cutPolygon(1, 1, 1) });
       tl.add(Flip.fit(sheet, card, { scale: true, duration: rest, ease: ease.inOut }), swapAt);
       tl.to(sheet, { clipPath: cutPolygon(cr.width / window.innerWidth, cr.height / window.innerHeight), duration: rest, ease: ease.inOut }, swapAt);
-      tl.to(black, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
-      tl.to(ink, { opacity: 1, duration: rest, ease: ease.inOut }, swapAt);
-      tl.to(light, { opacity: 0, duration: rest, ease: ease.inOut }, swapAt);
+      tl.to(black, { opacity: 0, duration: rest * 0.5, ease: ease.inOut }, swapAt);
+      tl.to(paper, { opacity: 1, duration: rest * 0.5, ease: ease.inOut }, swapAt + rest * 0.5);
       tl.to([...sib.before, ...sib.after], { xPercent: 0, opacity: 1, duration: rest, ease: ease.inOut }, swapAt);
       tl.to(sheet, { opacity: 0, duration: 0.06, ease: "none" }, swapAt + rest - 0.06); // the card's own type returns
     } else {
@@ -589,12 +595,13 @@ export default function ProgramDetail() {
     >
       {/* The card's paper, grown to the screen; it turns black (and steps aside for the canvas). */}
       <div className="detail-sheet" aria-hidden="true">
+        <div className="detail-sheet-card" />
         <div className="detail-sheet-black" />
       </div>
       {/* The card's printed shape in flight: ink on paper, white on black. */}
       <div className="detail-fly" aria-hidden="true">
         {flyId && <ShapeArt programId={flyId} className="fly-ink" />}
-        {flyId && <ShapeArt programId={flyId} className="fly-light" />}
+        {flyId && <ShapeArt programId={flyId} className="fly-light" accent />}
       </div>
       {program && (
         <div className="detail-inner">

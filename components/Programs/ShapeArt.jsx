@@ -19,7 +19,11 @@ import { HALFTONE, dotsPath } from "@/lib/halftone";
 
 const noSubscribe = () => () => {};
 
-export default function ShapeArt({ programId, className = "" }) {
+/**
+ * `accent`: print about 10% of the dots in the squad colour (CSS `--squad`);
+ * without it every dot takes the ink colour.
+ */
+export default function ShapeArt({ programId, className = "", accent = false }) {
   const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
   const program = programs.find((p) => p.id === programId);
   const shape = program && SHAPES[shapeFor(program)];
@@ -27,7 +31,14 @@ export default function ShapeArt({ programId, className = "" }) {
   return (
     <svg className={`shape-art ${className}`} viewBox={HALFTONE.viewBox.join(" ")} aria-hidden="true" focusable="false">
       {onClient ? (
-        <path d={dotsPath(program)} fill="currentColor" />
+        <>
+          <path d={dotsPath(program).main} fill="currentColor" />
+          <path
+            d={dotsPath(program).accent}
+            fill="currentColor"
+            style={accent ? { fill: "var(--squad, currentColor)" } : undefined}
+          />
+        </>
       ) : (
         (shape.parts ?? [shape]).map((part, k) => (
           <path key={k} d={part.d} fill="currentColor" fillRule={part.rule === "evenodd" ? "evenodd" : "nonzero"} />

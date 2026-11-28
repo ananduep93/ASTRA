@@ -13,9 +13,10 @@
  * one card. Vertical scrolling is never taken over: a vertical wheel or swipe
  * over a rail still scrolls the page (touch-action: pan-x pan-y; Lenis skips
  * only horizontal gestures over a rail: data-lenis-prevent-horizontal).
- * Cards are squad-coloured posters (3:4, chamfered corner, a number tab): the
- * centre card is filled with its squad colour and printed in ink, lifted and
- * floating; the others are a deep tint of the hue with a thin line, smaller.
+ * Cards are dark posters (charcoal, 3:4, chamfered corner, a squad-colour number
+ * tab) with a white halftone print, about 10% of its dots in the squad colour.
+ * The centre card has a brighter border and a soft squad-colour glow, lifts and
+ * floats; the others sit smaller with a dimmer border and print.
  * Shapes drift with the rail; cards tilt slightly with the swipe speed.
  *
  * Every reveal is state-based (never resting half-clipped) and waits for the
@@ -44,13 +45,8 @@ const isStatic = () => document.documentElement.dataset.world === "static";
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 const ROWS = SQUADS.map((squad) => ({ squad, items: programsBySquad(squad) }));
-/** A squad's colour tokens (lib/theme.js) as local CSS variables. */
-const squadVars = (squad) => ({
-  "--squad": `var(--squad-${squad})`,
-  "--squad-tint": `var(--squad-tint-${squad})`,
-  "--squad-line": `var(--squad-line-${squad})`,
-  "--squad-dim": `var(--squad-dim-${squad})`,
-});
+/** A squad's colour (lib/theme.js) as a local CSS variable. */
+const squadVars = (squad) => ({ "--squad": `var(--squad-${squad})` });
 
 /* ------------------------------------------------------------------ rails */
 
@@ -413,27 +409,25 @@ export default function Programs() {
                     style={squadVars(p.squad)}
                     onClick={(e) => openDetail(p.id, ids, e.currentTarget)}
                   >
-                    {/* The poster: line, deep tint, and the full squad colour (fades in at the centre). */}
+                    {/* The active card's soft squad-colour glow (fades in at the rail's centre). */}
+                    <span className="card-glow" aria-hidden="true" />
+                    {/* The poster: a 1px line (brighter at the centre) around a charcoal surface,
+                        a thin squad-colour line along the top, the squad-colour number tab. */}
                     <span className="card-body" aria-hidden="true">
                       <span className="card-line" />
-                      <span className="card-tint" />
-                      <span className="card-fill" />
+                      <span className="card-line card-line-on" />
+                      <span className="card-surface" />
+                      <span className="card-top" />
+                      <span className="card-tab" />
                     </span>
                     <span className="card-num" aria-hidden="true">
-                      <span className="on-dim">
-                        {pad(numberOf(p.id))} / {pad(TOTAL)}
-                      </span>
-                      <span className="on-ink">
-                        {pad(numberOf(p.id))} / {pad(TOTAL)}
-                      </span>
+                      {pad(numberOf(p.id))} / {pad(TOTAL)}
                     </span>
                     <span className="card-frame" aria-hidden="true">
-                      <ShapeArt programId={p.id} className="card-art on-dim" />
-                      <ShapeArt programId={p.id} className="card-art on-ink" />
+                      <ShapeArt programId={p.id} className="card-art" accent />
                     </span>
                     <span className="card-name" aria-hidden="true">
-                      <span className="on-dim">{p.name}</span>
-                      <span className="on-ink">{p.name}</span>
+                      {p.name}
                     </span>
                   </button>
                 </li>
