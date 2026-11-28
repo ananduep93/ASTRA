@@ -14,7 +14,7 @@
  *      (square dots), Business rise like bars, Fun confetti burst.
  *    Next / previous: a short turbulence melting straight into the next shape
  *    (from wherever the dots are, so rapid presses never jump). Close: the
- *    dots fall back onto the card's halftone dots. Only `detailCount` dots
+ *    dots fade and contract toward the card. Only `detailCount` dots
  *    are drawn for a detail (tier). One shape at a time, never one canvas per card.
  *
  * Shapes are drawn on a hidden canvas and sampled into target points; the
@@ -177,6 +177,8 @@ const vertexShader = /* glsl */ `
   uniform vec2 uCenter;
   uniform float uTurb;        // switch: turbulence amplitude (world units)
   uniform float uTurbStart;   // turbulence already there when this morph began (an interrupted switch)
+  uniform float uShrink;      // close: 0..1, the dots contract toward uShrinkTo and fade
+  uniform vec2 uShrinkTo;
 
   varying float vAlpha;
   varying float vAccent;
@@ -247,6 +249,9 @@ const vertexShader = /* glsl */ `
       sin(aSeed * 23.0 + uTime * 4.0) * 0.5
     ) * uTurb * tb;
 
+    // Close: contract toward the card (positions held, no morph back).
+    p.xy = mix(p.xy, uShrinkTo + (p.xy - uShrinkTo) * 0.12, uShrink);
+
     // Barely-there life while a shape holds (time-based).
     p += vec3(sin(uTime * 1.3 + aSeed * 40.0), cos(uTime * 1.1 + aSeed * 23.0), 0.0) * 0.006;
 
@@ -254,7 +259,7 @@ const vertexShader = /* glsl */ `
     float dist = -mvPosition.z;
     gl_PointSize = clamp(uSize * (1.0 + boost * 0.8) * uScale / max(dist, 0.001), 1.0, uMaxPx);
     gl_Position = projectionMatrix * mvPosition;
-    vAlpha = uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost);
+    vAlpha = uAlpha * smoothstep(0.3, 2.0, dist) * mix(0.9, 1.0, boost) * (1.0 - uShrink);
     vAccent = step(fract(aSeed * 91.71), uAccentShare);
     vBoost = boost;
   }
@@ -356,6 +361,8 @@ export default function ProgramField({ count, detailCount = count }) {
           uCenter: { value: new THREE.Vector2() },
           uTurb: { value: 0 },
           uTurbStart: { value: 0 },
+          uShrink: { value: 0 },
+          uShrinkTo: { value: new THREE.Vector2() },
           uSquare: { value: 0 },
           uGlow: { value: 0 },
           uLight: { value: new THREE.Color(colors.white) },
@@ -447,18 +454,20 @@ export default function ProgramField({ count, detailCount = count }) {
           }
           let from;
           let to;
-          let sig = detailState.squad;
+          const sig = detailState.squad;
           u.uBurst.value = 0;
           u.uTurb.value = 0;
           u.uTurbStart.value = 0;
+          u.uShrink.value = 0;
           d.turb = 0;
-          if (phase === "close") {
-            to = new Float32Array(count * 3);
-            fillHalftone(to, n, detailState.to, wpp, seededRandom(77));
-            from = current ?? to;
-            sig = null; // a plain, quick fall back onto the print
-            d.duration = DET.collapseDots;
-            d.stagger = 0.15;
+          if (phase === "shrink") {
+            // Close: the dots stay where they are and contract toward the card, fading.
+            to = current ?? d.to ?? new Float32Array(count * 3);
+            from = to;
+            const [sx, sy] = screenToLocal(detailState.to.x, detailState.to.y, hero.camera.fov);
+            u.uShrinkTo.value.set(sx, sy);
+            d.duration = DET.shrink;
+            d.stagger = F.stagger;
           } else {
             const program = programs.find((p) => p.id === detailState.programId);
             const next = sampleDetail(count, program, detailState.rect, n);
@@ -517,10 +526,13 @@ export default function ProgramField({ count, detailCount = count }) {
         }
       }
       u.uAlpha.value = d.alpha;
-      u.uMorph.value = Math.min(1, (now - d.start) / d.duration);
+      const m = Math.min(1, (now - d.start) / d.duration);
+      // Shrink holds the shape (morph done) and drives the contraction; every other phase morphs.
+      u.uMorph.value = d.phase === "shrink" ? 1 : m;
+      u.uShrink.value = d.phase === "shrink" ? m * m * (3 - 2 * m) : 0;
       pts.visible = d.alpha > 0.001;
       if (glow.current) {
-        const formed = d.phase === "close" ? 1 - u.uMorph.value : Math.min(1, u.uMorph.value * 1.5);
+        const formed = d.phase === "shrink" ? 1 - u.uShrink.value : Math.min(1, u.uMorph.value * 1.5);
         const gu = glow.current.material.uniforms;
         gu.uAlpha.value = DET.glow * d.alpha * (d.phase === "switch" ? 1 : formed);
         glow.current.visible = pts.visible && gu.uAlpha.value > 0.002;
@@ -547,6 +559,7 @@ export default function ProgramField({ count, detailCount = count }) {
       u.uBurst.value = 0;
       u.uTurb.value = 0;
       u.uTurbStart.value = 0;
+      u.uShrink.value = 0;
       pts.position.set(...FIN.center);
       pts.quaternion.identity(); // the finale camera looks straight down -z at the logo
       u.uSig.value = 0; // the curling path, with the finale's own settings

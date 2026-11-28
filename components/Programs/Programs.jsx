@@ -13,10 +13,11 @@
  * one card. Vertical scrolling is never taken over: a vertical wheel or swipe
  * over a rail still scrolls the page (touch-action: pan-x pan-y; Lenis skips
  * only horizontal gestures over a rail: data-lenis-prevent-horizontal).
- * Cards are dark posters (charcoal, 3:4, chamfered corner, a squad-colour number
- * tab) with a white halftone print, about 10% of its dots in the squad colour.
- * The centre card has a brighter border and a soft squad-colour glow, lifts and
- * floats; the others sit smaller with a dimmer border and print.
+ * Cards are "poster pages" (3:4, no frame): a giant outlined number behind a
+ * large white halftone print (about 10% of its dots in the squad colour), the
+ * name in large white type at the bottom, a static squad-colour gradient and a
+ * thin line at the bottom edge. The centre card lifts and its number brightens;
+ * the others sit smaller and dimmer.
  * Shapes drift with the rail; cards tilt slightly with the swipe speed.
  *
  * Every reveal is state-based (never resting half-clipped) and waits for the
@@ -39,8 +40,6 @@ import { openDetail, detailUi } from "@/lib/detail";
 import { numberOf, TOTAL } from "@/lib/programOrder";
 import Emblem from "@/components/Story/Emblem";
 import ShapeArt from "./ShapeArt";
-import { printUrl } from "@/lib/halftone";
-import { colors } from "@/lib/theme";
 
 const pad = (n) => String(n).padStart(2, "0");
 const isStatic = () => document.documentElement.dataset.world === "static";
@@ -78,11 +77,10 @@ function goTo(rail, i, smooth = true) {
 
 /**
  * One rail's live behaviour, driven from ONE gsap.ticker loop (only while the
- * rail is on screen): the card nearest the centre lifts and is full size, the
- * others sit smaller; its fill, ink print and ink text fade in through `--on`
- * (opacity only); the shape drifts with the rail (parallax); the centre card
- * floats a little (time-based); every card tilts slightly with the swipe speed
- * and settles back. Transforms only, no layout reads per frame (card centres are
+ * rail is on screen and no detail is open): the card nearest the centre lifts and
+ * is full size, the others sit smaller; its number and print brighten through
+ * `--on` (opacity only); the shape drifts with the rail (parallax); every card
+ * tilts slightly with the swipe speed and settles back. Transforms only, no layout reads per frame (card centres are
  * measured on resize). Also: dots, arrow states, mouse drag (touch stays
  * native), left / right keys, arrows. Returns a cleanup function.
  */
@@ -146,8 +144,7 @@ function wireRail(row) {
       }
       const on = 1 - Math.min(1, ad); // 1 = the centre card
       const scale = F.sideScale + (1 - F.sideScale) * on;
-      const float = calm ? 0 : Math.sin((time / F.floatPeriod) * Math.PI * 2) * F.floatAmp * on * on;
-      const y = F.lift * on + float;
+      const y = F.lift * on;
       // Write only what changed (a still rail costs no style work; only the centre card floats).
       const tf = `translate3d(0, ${y.toFixed(1)}px, 0) rotate(${tilt.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
       if (tf !== last[i].tf) cards[i].style.transform = last[i].tf = tf;
@@ -287,11 +284,6 @@ export default function Programs() {
     };
   }, []);
 
-  /* Warm the detail's black-ink prints in idle time, so the first open never makes one. */
-  useEffect(() => {
-    programs.forEach((p) => printUrl(p, { ink: colors.black, accent: null, size: 512 }));
-  }, []);
-
   /* Rails: centre scale, parallax, dots, arrows, drag, keys. */
   useEffect(() => {
     const offs = [...root.current.querySelectorAll(".rail-row")].map(wireRail);
@@ -425,19 +417,11 @@ export default function Programs() {
                     style={squadVars(p.squad)}
                     onClick={(e) => openDetail(p.id, ids, e.currentTarget)}
                   >
-                    {/* The active card's soft squad-colour glow (fades in at the rail's centre). */}
-                    <span className="card-glow" aria-hidden="true" />
-                    {/* The poster: a 1px line (brighter at the centre) around a charcoal surface,
-                        a thin squad-colour line along the top, the squad-colour number tab. */}
-                    <span className="card-body" aria-hidden="true">
-                      <span className="card-line" />
-                      <span className="card-line card-line-on" />
-                      <span className="card-surface" />
-                      <span className="card-top" />
-                      <span className="card-tab" />
-                    </span>
-                    <span className="card-num" aria-hidden="true">
-                      {pad(numberOf(p.id))} / {pad(TOTAL)}
+                    {/* A poster page: a giant outlined number behind the print, the print (one image),
+                        the name, and a static squad-colour gradient + thin line at the bottom edge. */}
+                    <span className="card-foot" aria-hidden="true" />
+                    <span className="card-big" aria-hidden="true">
+                      {pad(numberOf(p.id))}
                     </span>
                     <span className="card-frame" aria-hidden="true">
                       <ShapeArt programId={p.id} className="card-art" accent />

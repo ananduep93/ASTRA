@@ -564,7 +564,7 @@ html[data-world="live"] .hero-title-wrap {
 .programs {
   --gl: var(--astra-space-gutter); /* the section's left padding... */
   --gr: calc(var(--astra-space-gutter) + 18px); /* ...and right padding (room for the HUD rail) */
-  --card-w: 78vw; /* phones: the next card peeks in */
+  --card-w: 82vw; /* phones: the next card peeks in */
   --rail-gap: 14px;
 }
 @media (min-width: 640px) {
@@ -701,17 +701,13 @@ html[data-world="live"] .hero-title-wrap {
   outline-offset: 2px;
 }
 
-/* Poster cards: dark charcoal posters, 3:4, a chamfered top-right corner and a
-   squad-colour file tab with the number. A white halftone print (about 10% of the
-   dots in the squad colour) and a large white name at the bottom left. The rail
-   sets --on per card (1 = the centre card): a brighter border, a soft squad-colour
-   glow and a full-strength print fade in with it (opacity only). */
+/* Poster cards, v3 "poster pages": 3:4, no frame. A giant outlined number behind
+   the print, a large white halftone print (one image) that may rise over the top
+   edge, the name large and white at the bottom, and a static squad-colour gradient
+   with a thin line along the bottom edge. The rail sets --on per card (1 = the
+   centre card): the number and the print brighten with it (opacity only). */
 .card {
   --on: 0;
-  --tab-h: 26px;
-  --tab-w: 80px;
-  --cham: 30px;
-  --cut: polygon(0 0, var(--tab-w) 0, calc(var(--tab-w) + var(--tab-h)) var(--tab-h), calc(100% - var(--cham)) var(--tab-h), 100% calc(var(--tab-h) + var(--cham)), 100% 100%, 0 100%);
   position: relative;
   display: block;
   width: 100%;
@@ -731,68 +727,33 @@ html[data-world="live"] .hero-title-wrap {
 .rail[data-moving] .card-frame {
   will-change: transform;
 }
-/* The active card's soft glow: a static radial gradient (no blur filter), faded by opacity only. */
-.card-glow {
-  position: absolute;
-  inset: -8% -10%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--squad, var(--astra-red)) 55%, transparent), transparent);
-  opacity: calc(var(--on) * 0.6);
-}
-.card-body,
-.card-line,
-.card-surface {
+/* The squad colour lives at the bottom edge: a soft static gradient and a thin line. */
+.card-foot {
   position: absolute;
   inset: 0;
-  clip-path: var(--cut);
+  border-bottom: 2px solid var(--squad, var(--astra-red));
+  background: linear-gradient(to top, color-mix(in srgb, var(--squad, var(--astra-red)) 26%, transparent), transparent 46%);
 }
-.card-line {
-  background: rgb(250 250 250 / 0.18);
-}
-.card-line-on {
-  background: rgb(250 250 250 / 0.5);
-  opacity: var(--on);
-}
-.card-surface {
-  inset: 1px; /* the line shows as a 1px border all round, the chamfer and tab included */
-  background: var(--astra-card);
-}
-/* A thin squad-colour line along the top edge (between the tab and the chamfer). */
-.card-top {
+/* The giant outlined number, behind the print. */
+.card-big {
   position: absolute;
-  top: var(--tab-h);
-  right: var(--cham);
-  left: calc(var(--tab-w) + var(--tab-h));
-  height: 2px;
-  background: var(--squad, var(--astra-red));
-}
-/* The number tab: the squad colour, black type on it. */
-.card-tab {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: calc(var(--tab-w) + var(--tab-h));
-  height: var(--tab-h);
-  background: var(--squad, var(--astra-red));
-  clip-path: polygon(0 0, var(--tab-w) 0, 100% 100%, 0 100%);
-}
-.card-num {
-  position: absolute;
-  top: 0;
-  left: 12px;
-  display: flex;
-  height: var(--tab-h);
-  align-items: center;
-  color: var(--astra-black);
-  font-size: 0.8125rem;
+  top: -0.06em;
+  left: -0.04em;
+  color: transparent;
+  font-family: var(--astra-font-display);
+  font-size: calc(var(--card-w) * 0.62);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 800;
+  line-height: 1;
+  -webkit-text-stroke: 1.5px var(--astra-white);
+  opacity: calc(0.16 + 0.34 * var(--on));
 }
-/* The print: a square box covering most of the card (about 60% of its area). */
+/* The print: large, rising a little above the card's top edge. */
 .card-frame {
   position: absolute;
-  top: 9%;
-  left: 5%;
-  width: 90%;
+  top: -6%;
+  left: 4%;
+  width: 92%;
   aspect-ratio: 1 / 1;
 }
 .card-art {
@@ -802,15 +763,15 @@ html[data-world="live"] .hero-title-wrap {
   width: 100%;
   height: 100%;
   color: var(--astra-white);
-  opacity: calc(0.55 + 0.45 * var(--on));
+  opacity: calc(0.5 + 0.5 * var(--on));
 }
 .card-name {
   position: absolute;
-  right: 16px;
-  bottom: 14px;
-  left: 16px;
+  right: 14px;
+  bottom: 16px;
+  left: 14px;
   font-family: var(--astra-font-display);
-  font-size: clamp(1.75rem, 7.6vw, 2.25rem); /* at least 28px on phones */
+  font-size: clamp(1.75rem, 8vw, 2.4rem); /* at least 28px on phones */
   font-weight: 800;
   line-height: 0.95;
   text-transform: uppercase;
@@ -856,47 +817,20 @@ html[data-world="live"] .hero-title-wrap {
 .detail[hidden] {
   display: none;
 }
-/* The card's squad colour flooding the screen (Flip from the card, its chamfered cut
-   opening up); it drains to black, then steps aside for the canvas. Without a canvas
-   it simply stays black. */
+/* The black behind the detail; it steps aside for the lifted canvas (the same black).
+   Without a canvas it simply stays. */
 .detail-sheet {
-  position: absolute;
-  inset: 0;
-  background: var(--squad, var(--astra-red));
-}
-/* The dark card surface over the squad colour (fades as the colour floods in). */
-.detail-sheet-card {
-  position: absolute;
-  inset: 0;
-  background: var(--astra-card);
-  opacity: 0;
-}
-.detail-sheet-black {
   position: absolute;
   inset: 0;
   background: var(--astra-black);
 }
-/* The card's printed shape in flight (placed and sized by JS): ink and white copies cross-fade. */
-.detail-fly {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+/* The copy of the tapped card that scales up to fill the screen and back (placed by JS). */
+.detail-copy {
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
-.detail-fly .shape-art,
 .detail-static-art {
   display: block;
-}
-.detail-fly .shape-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.fly-ink {
-  color: var(--astra-black);
-}
-.fly-light,
-.detail-static-art {
   color: var(--astra-white);
 }
 .detail-inner {
