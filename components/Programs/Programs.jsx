@@ -335,6 +335,7 @@ export default function Programs() {
       });
 
       const tick = () => {
+        if (detailUi.open) return; // the page is locked under the detail: nothing to reveal, no layout reads
         if (isStatic()) {
           el.dataset.ready = "true";
           headR.snap(true);

@@ -36,7 +36,8 @@ import {
 } from "@/lib/journey";
 import { finale as FIN } from "@/lib/motion";
 import { storyStatus } from "@/lib/storyStatus";
-import { detailState } from "@/lib/detail";
+import { detailState, detailUi } from "@/lib/detail";
+import { perfStats } from "@/lib/perf";
 import HeroParticles from "./HeroParticles";
 import ProgramField from "./ProgramField";
 import { worldUniforms, bgMaskGLSL, heroStatus } from "./worldUniforms";
@@ -112,6 +113,12 @@ const backdropFragment = /* glsl */ `
 
 /** Full-screen background; each new tone opens from the centre of the screen. */
 function Backdrop() {
+  const mesh = useRef(null);
+  // While a program detail has the canvas lifted above the page, no backdrop: the canvas is
+  // transparent, so the card surface under it and the page around it stay visible.
+  useFrame(() => {
+    if (mesh.current) mesh.current.visible = !detailUi.lifted;
+  });
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -142,10 +149,24 @@ function Backdrop() {
   }, []);
 
   return (
-    <mesh material={material} renderOrder={-1} frustumCulled={false}>
+    <mesh ref={mesh} material={material} renderOrder={-1} frustumCulled={false}>
       <planeGeometry args={[2, 2]} />
     </mesh>
   );
+}
+
+/** Feeds the ?perf=1 overlay: tier, dot budget and the dots drawn right now. */
+function PerfFeed({ tier, count }) {
+  useFrame(({ scene }) => {
+    perfStats.tier = tier;
+    perfStats.particles = count;
+    let drawn = 0;
+    scene.traverse((o) => {
+      if (o.isPoints && o.visible) drawn += Math.min(o.geometry.drawRange.count, o.geometry.attributes.position.count);
+    });
+    perfStats.drawn = drawn;
+  });
+  return null;
 }
 
 /**
@@ -210,7 +231,7 @@ function DebugStats({ tier, count }) {
   return null;
 }
 
-export default function Scene({ tier = "high", debug = false }) {
+export default function Scene({ tier = "high", debug = false, perf = false }) {
   const cfg = TIERS[tier] ?? TIERS.mid;
   const wrap = useRef(null);
 
@@ -240,6 +261,7 @@ export default function Scene({ tier = "high", debug = false }) {
         <HeroParticles count={cfg.particles} />
         <ProgramField count={cfg.particles} detailCount={cfg.detailParticles} />
         {debug && <DebugStats tier={tier} count={cfg.particles} />}
+        {perf && <PerfFeed tier={tier} count={cfg.particles} />}
       </Canvas>
     </div>
   );

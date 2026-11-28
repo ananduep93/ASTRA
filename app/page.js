@@ -10,6 +10,7 @@ import ProgramDetail from "@/components/Programs/ProgramDetail";
 import Finale from "@/components/Story/Finale";
 import Hud from "@/components/HUD/Hud";
 import ScrollReadout from "@/components/Debug/ScrollReadout";
+import PerfOverlay from "@/components/Debug/PerfOverlay";
 import Menu from "@/components/Menu/Menu";
 import { PROGRAMS_AT } from "@/lib/journey";
 import { finale as FIN, touchScroll } from "@/lib/motion";
@@ -41,6 +42,7 @@ export default function Home() {
       {/* Outside <main>: the menu and the detail make <main> inert while open, never themselves. */}
       <Menu />
       <ProgramDetail />
+      <PerfOverlay />
     </>
   );
 }

@@ -801,6 +801,20 @@ html[data-world="live"] .hero-title-wrap {
   fill: var(--squad, var(--astra-red));
 }
 
+/* ?perf=1 readout (components/Debug/PerfOverlay.jsx). */
+.perf-overlay {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 90;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.75);
+  color: #9be15d;
+  font: 600 11px/1.4 ui-monospace, monospace;
+  pointer-events: none;
+}
+
 /* ---------------------------------------------------------------- detail */
 /* A card grown to full screen (GSAP Flip), black with white type. Once open, its
    background turns see-through and the shared canvas (lifted above the page, black
@@ -810,6 +824,9 @@ html[data-world="live"] .hero-title-wrap {
   inset: 0;
   z-index: 70;
   overflow: hidden;
+  /* Layout inside cannot affect the page (and the reverse): measuring the detail or
+     splitting its name never relays out the long page behind it. */
+  contain: strict;
   background: transparent; /* the sheet (and then the lifted canvas) is the background */
   color: var(--astra-white);
   touch-action: pan-y;
@@ -817,17 +834,36 @@ html[data-world="live"] .hero-title-wrap {
 .detail[hidden] {
   display: none;
 }
-/* The black behind the detail; it steps aside for the lifted canvas (the same black).
-   Without a canvas it simply stays. */
-.detail-sheet {
-  position: absolute;
+/* Under the lifted canvas (z 66) and the detail (z 70): the card's surface, which grows
+   from the card into the background, and its print, which flies to the art area. Both are
+   placed and moved by JS (transforms and opacity only). */
+.detail-under {
+  position: fixed;
   inset: 0;
-  background: var(--astra-black);
+  z-index: 64;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
 }
-/* The copy of the tapped card that scales up to fill the screen and back (placed by JS). */
-.detail-copy {
-  transform-origin: 50% 50%;
-  will-change: transform;
+.detail-under[hidden] {
+  display: none;
+}
+.detail-surface,
+.detail-print {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+}
+/* The card surface, stretched: black with the squad colour's soft gradient and line at the bottom. */
+.detail-surface {
+  border-bottom: 2px solid var(--squad, var(--astra-red));
+  background:
+    linear-gradient(to top, color-mix(in srgb, var(--squad, var(--astra-red)) 26%, transparent), transparent 46%),
+    var(--astra-black);
+}
+.detail-print {
+  display: block;
+  object-fit: contain;
 }
 .detail-static-art {
   display: block;

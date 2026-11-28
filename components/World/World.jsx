@@ -11,6 +11,7 @@ import { Component, Suspense, lazy, useState } from "react";
 import { detectQuality } from "@/lib/quality";
 import { prefersReducedMotion } from "@/lib/motion";
 import Fallback from "./Fallback";
+import { perfEnabled } from "@/lib/perf";
 
 const Scene = lazy(() => import("./Scene"));
 
@@ -31,6 +32,7 @@ export default function World() {
   // This file never renders on the server, so reading the browser here is safe.
   const [tier] = useState(() => (prefersReducedMotion() ? "none" : detectQuality()));
   const [debug] = useState(readDebug);
+  const [perf] = useState(perfEnabled);
 
   // No WebGL, a low-end device or reduced motion: the static page.
   if (tier === "none" || tier === "low") return <Fallback />;
@@ -38,7 +40,7 @@ export default function World() {
   return (
     <SceneErrorBoundary>
       <Suspense fallback={null}>
-        <Scene tier={tier} debug={debug} />
+        <Scene tier={tier} debug={debug} perf={perf} />
       </Suspense>
     </SceneErrorBoundary>
   );
