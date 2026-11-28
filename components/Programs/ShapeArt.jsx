@@ -1,49 +1,51 @@
 "use client";
 
 /**
- * A program's shape as a static halftone print: the same shape the dots form
- * (data/shapes.js), drawn as full, equal dots on a rotated grid (lib/halftone.js).
- * A dot prints when its centre is inside the shape, so outlines never get
- * half-cut "bites", and the detail's particles start exactly on these dots.
- * The ink is `currentColor` (set it with CSS `color`).
+ * A program's shape as a halftone print: the same shape the dots form
+ * (data/shapes.js), full, equal dots on a rotated grid (lib/halftone.js), about
+ * 10% of them in the squad colour when `accent` is set.
  *
- * Server render / first paint: the plain silhouette (also the no-JavaScript
- * fallback); right after hydration it becomes the dot print (the dot test needs
- * a browser canvas). Used on the rail cards, the flying print and the detail's
+ * For speed it is ONE pre-rendered image (drawn once per program to an offscreen
+ * canvas in idle time, then reused), never hundreds of SVG circles. Until the
+ * image is ready (and on the server / without JavaScript) a faint silhouette
+ * shows instead. Used on the rail cards, the flying print and the detail's
  * static shape (low tier, reduced motion).
+ *   ink   "white" | "black"   colour of the dots
+ *   size  px of the square image (the SVG viewBox), enough for its largest use
  */
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { programs } from "@/data/programs";
 import { SHAPES, shapeFor } from "@/data/shapes";
-import { HALFTONE, dotsPath } from "@/lib/halftone";
+import { HALFTONE, printUrl } from "@/lib/halftone";
+import { colors, squadAccent } from "@/lib/theme";
 
-const noSubscribe = () => () => {};
-
-/**
- * `accent`: print about 10% of the dots in the squad colour (CSS `--squad`);
- * without it every dot takes the ink colour.
- */
-export default function ShapeArt({ programId, className = "", accent = false }) {
-  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
+export default function ShapeArt({ programId, className = "", accent = false, ink = "white", size = 512 }) {
   const program = programs.find((p) => p.id === programId);
+  const [print, setPrint] = useState(null); // { key, url } once the image is ready
+  const key = `${programId}|${ink}|${accent}|${size}`;
+
+  useEffect(() => {
+    if (!program) return undefined;
+    let live = true;
+    printUrl(program, { ink: colors[ink] ?? ink, accent: accent ? squadAccent(program.squad) : null, size }).then(
+      (url) => live && setPrint({ key, url })
+    );
+    return () => {
+      live = false;
+    };
+  }, [program, ink, accent, size, key]);
+
   const shape = program && SHAPES[shapeFor(program)];
   if (!shape) return null;
+  if (print?.key === key) {
+    // eslint-disable-next-line @next/next/no-img-element -- a generated blob image, not a static asset
+    return <img className={`shape-art ${className}`} src={print.url} alt="" aria-hidden="true" draggable={false} decoding="async" />;
+  }
   return (
     <svg className={`shape-art ${className}`} viewBox={HALFTONE.viewBox.join(" ")} aria-hidden="true" focusable="false">
-      {onClient ? (
-        <>
-          <path d={dotsPath(program).main} fill="currentColor" />
-          <path
-            d={dotsPath(program).accent}
-            fill="currentColor"
-            style={accent ? { fill: "var(--squad, currentColor)" } : undefined}
-          />
-        </>
-      ) : (
-        (shape.parts ?? [shape]).map((part, k) => (
-          <path key={k} d={part.d} fill="currentColor" fillRule={part.rule === "evenodd" ? "evenodd" : "nonzero"} />
-        ))
-      )}
+      {(shape.parts ?? [shape]).map((part, k) => (
+        <path key={k} d={part.d} fill="currentColor" fillOpacity="0.18" fillRule={part.rule === "evenodd" ? "evenodd" : "nonzero"} />
+      ))}
     </svg>
   );
 }

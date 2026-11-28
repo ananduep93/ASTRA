@@ -164,7 +164,7 @@ function DebugStats({ tier, count }) {
       // Page positions (0..1 of the page, for jump) of story points:
       programsAt: () => programsScrollY() / pageMax(), // the programs section filling the screen
       finaleAt: (f) => scrollAtStory(HERO_END + f * FIN.vh) / pageMax(), // finale progress f (0..1)
-      lenisStopped: () => getLenis()?.isStopped ?? null,
+      lenisStopped: () => { const l = getLenis(); return l ? l.isStopped || l.isLocked : null; },
       tripActive,
       heroAt: (h) => scrollAtStory(h * journey.heroVh) / pageMax(), // hero progress h (0..1)
       sceneVh: () => toVh(scrollState.smooth), // where the scene is (story vh)
@@ -175,8 +175,12 @@ function DebugStats({ tier, count }) {
         const lenis = getLenis();
         if (lenis) lenis.scrollTo(y, { immediate: true, force: true });
         else window.scrollTo(0, y);
+        snapSmooth(); // the scene is there on the next tick, before the leash looks
         requestAnimationFrame(() => requestAnimationFrame(snapSmooth));
       },
+      // Page position (0..1) of a story vh, and where the flash ends (tests).
+      storyAt: (s) => scrollAtStory(s) / pageMax(),
+      heroEnd: HERO_END,
     };
     return () => {
       delete window.__astraRender;

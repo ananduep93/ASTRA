@@ -14,8 +14,8 @@ import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { scrollConfig, scrollSmoothing, touchScroll, REDUCED_MOTION_QUERY, TOUCH_QUERY } from "@/lib/motion";
-import { sceneGoal } from "@/lib/journey";
-import { setLenis, writeScroll, stepSmooth } from "@/lib/scrollStore";
+import { sceneGoal, maxScrollNow } from "@/lib/journey";
+import { setLenis, writeScroll, stepSmooth, tripActive } from "@/lib/scrollStore";
 
 // Register once per page load. Guarded so it never runs on the server.
 if (typeof window !== "undefined") {
@@ -43,12 +43,31 @@ export default function Providers({ children }) {
       // Guided pace: the scene follows its goal (lib/journey.js sceneGoal: paced hero and finale, a hold in the programs)
       // (wheel and touch alike). Touch keeps its slightly calmer damping.
       const touch = window.matchMedia(TOUCH_QUERY);
+      // The leash (lib/journey.js maxScrollNow): a flick that runs too far ahead of the
+      // paced scene is stopped (Lenis stop also halts native touch momentum) and held at
+      // the limit, never pushed forward; scrolling is released once the scene has caught
+      // up. Menu trips move page and scene together and are not leashed.
+      let leashed = false;
+      const leash = () => {
+        if (tripActive()) return;
+        const max = maxScrollNow();
+        const y = lenis.animatedScroll;
+        if (!leashed && y > max + 2 && !lenis.isStopped) {
+          leashed = true;
+          lenis.stop();
+          lenis.scrollTo(max, { immediate: true, force: true });
+        } else if (leashed && y <= max - 2) {
+          leashed = false;
+          lenis.start();
+        }
+      };
       const tick = (time, deltaMs) => {
         lenis.raf(time * 1000); // gsap.ticker gives seconds; Lenis wants milliseconds
         // Read every frame (not only on scroll) so a page-height change is picked up too.
         writeScroll(lenis.animatedScroll, lenis.limit, lenis.velocity);
         const dt = Math.min(deltaMs / 1000, scrollSmoothing.maxDelta);
         stepSmooth(dt, touch.matches ? touchScroll.damping : scrollSmoothing.damping, sceneGoal());
+        leash();
       };
       // prioritize = true: Lenis runs first each frame, so the 3D scene and
       // DOM read this frame's scroll value, not last frame's.

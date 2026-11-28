@@ -23,7 +23,7 @@
  *   squad colour, the other cards slide back in. Closing before the canvas has
  *   taken over plays the open back in reverse.
  *
- * While open: Lenis paused, page scroll locked, the page behind is inert, Tab
+ * While open: Lenis locked (no page scroll), the page behind aria-hidden, Tab
  * stays inside. Hash routing: #programs/photography opens it (also on reload),
  * #programs scrolls to the section; Back closes.
  * No canvas (low tier) or reduced motion: the static halftone shape; reduced
@@ -38,7 +38,7 @@ import { programs } from "@/data/programs";
 import { detailCopy as COPY } from "@/data/story";
 import { ease, duration, detail as DET, prefersReducedMotion } from "@/lib/motion";
 import { getLenis, startTrip } from "@/lib/scrollStore";
-import { DETAIL_EVENT, detailState, showDetailShape, collapseDetailShape, hideDetailShape } from "@/lib/detail";
+import { DETAIL_EVENT, detailUi, detailState, showDetailShape, collapseDetailShape, hideDetailShape } from "@/lib/detail";
 import { dotsOnScreen, contentSquare } from "@/lib/halftone";
 import { numberOf, squadIdsOf } from "@/lib/programOrder";
 import { toProgress, programsScrollY, HERO_END } from "@/lib/journey";
@@ -148,18 +148,28 @@ export default function ProgramDetail() {
   /** The detail's phase, mirrored on the panel as data-phase (CSS hooks, tests). */
   const setPhase = useCallback((v) => {
     phase.current = v;
+    detailUi.open = !!v;
     if (panel.current) panel.current.dataset.phase = v ?? "";
   }, []);
 
   /* ---------------------------------------------------------- lock page */
+  /*
+   * While open: Lenis is LOCKED (it cancels every wheel and touch scroll, so the page
+   * cannot move), the page behind is hidden from assistive tech (aria-hidden) and Tab
+   * is trapped inside. Deliberately no `inert` and no overflow change on <html>: both
+   * force a full restyle and relayout of the long page (a 100-200ms stall on a phone).
+   */
   const lock = useCallback((on) => {
     const main = document.querySelector("main");
     const menuButton = document.querySelector(".menu-button");
-    if (main) main.inert = on;
-    if (menuButton) menuButton.inert = on;
-    document.documentElement.style.overflow = on ? "hidden" : "";
+    for (const el of [main, menuButton]) {
+      if (!el) continue;
+      if (on) el.setAttribute("aria-hidden", "true");
+      else el.removeAttribute("aria-hidden");
+    }
     const lenis = getLenis();
-    if (lenis) on ? lenis.stop() : lenis.start();
+    if (lenis) lenis.isLocked = on;
+    else document.documentElement.style.overflow = on ? "hidden" : ""; // reduced motion: no Lenis, native scroll
   }, []);
 
   const lift = (on) => {
@@ -600,7 +610,7 @@ export default function ProgramDetail() {
       </div>
       {/* The card's printed shape in flight: ink on paper, white on black. */}
       <div className="detail-fly" aria-hidden="true">
-        {flyId && <ShapeArt programId={flyId} className="fly-ink" />}
+        {flyId && <ShapeArt programId={flyId} className="fly-ink" ink="black" />}
         {flyId && <ShapeArt programId={flyId} className="fly-light" accent />}
       </div>
       {program && (

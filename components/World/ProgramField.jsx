@@ -75,13 +75,16 @@ function sampleFinale(count, logoImg) {
   return { scatter, logo };
 }
 
-/** Detail targets for one program inside `rect` (screen px), plus the frame info the signatures need. */
-function sampleDetail(count, program, rect) {
+/**
+ * Detail targets for one program inside `rect` (screen px), plus the frame info the
+ * signatures need. Only the first `n` dots (the ones a detail draws) are filled.
+ */
+function sampleDetail(count, program, rect, n = count) {
   const wpp = localPerPx();
   const out = new Float32Array(count * 3);
   const sample = sampleShape(SHAPES[shapeFor(program)], rect, F.framePadding, HALFTONE.bold);
-  if (sample) fillTargets(out, sample, wpp, seededRandom(31 + programs.indexOf(program)), () => false);
-  for (let i = 0; i < count; i++) out[i * 3 + 2] *= 0.6; // nearly flat, a hint of depth
+  if (sample) fillTargets(out.subarray(0, n * 3), sample, wpp, seededRandom(31 + programs.indexOf(program)), () => false);
+  for (let i = 0; i < n; i++) out[i * 3 + 2] *= 0.6; // nearly flat, a hint of depth
   const [cx, cy] = screenToLocal(rect.left + rect.width / 2, rect.top + rect.height / 2, hero.camera.fov);
   const halfW = (rect.width / 2) * wpp;
   const bottom = screenToLocal(0, rect.bottom - rect.height * F.framePadding, hero.camera.fov)[1];
@@ -458,7 +461,7 @@ export default function ProgramField({ count, detailCount = count }) {
             d.stagger = 0.15;
           } else {
             const program = programs.find((p) => p.id === detailState.programId);
-            const next = sampleDetail(count, program, detailState.rect);
+            const next = sampleDetail(count, program, detailState.rect, n);
             to = next.points;
             u.uCenter.value.set(next.frame.cx, next.frame.cy);
             if (glow.current) {
@@ -527,6 +530,8 @@ export default function ProgramField({ count, detailCount = count }) {
       if (glow.current) glow.current.visible = false;
       pts.geometry.setDrawRange(0, Infinity);
       mode.current = null; // the finale refills its buffers when it is next needed
+    } else if (glow.current?.visible && state.clock.elapsedTime > 1) {
+      glow.current.visible = false; // its shader has compiled by now (drawn at zero strength)
     }
 
     /* ---- finale: scroll-driven, scattered dots gather into the logo ---- */
@@ -563,7 +568,8 @@ export default function ProgramField({ count, detailCount = count }) {
   return (
     <points ref={ref} material={material} frustumCulled={false} visible={false}>
       {/* Behind the shape (drawn first): the soft squad-colour glow of a program detail. */}
-      <mesh ref={glow} material={glowMaterial} visible={false} renderOrder={-1} frustumCulled={false}>
+      {/* Visible (at zero strength) for the first frames only, so its shader compiles at load, not on the first open. */}
+      <mesh ref={glow} material={glowMaterial} visible renderOrder={-1} frustumCulled={false}>
         <planeGeometry args={[1, 1]} />
       </mesh>
       <bufferGeometry>

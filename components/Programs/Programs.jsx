@@ -35,10 +35,12 @@ import { programsCopy as COPY } from "@/data/story";
 import { ease, duration, stagger, programs as PGM, prefersReducedMotion } from "@/lib/motion";
 import { setLayout, transitionDone, programsRevealed } from "@/lib/journey";
 import { stateReveal } from "@/lib/reveal";
-import { openDetail } from "@/lib/detail";
+import { openDetail, detailUi } from "@/lib/detail";
 import { numberOf, TOTAL } from "@/lib/programOrder";
 import Emblem from "@/components/Story/Emblem";
 import ShapeArt from "./ShapeArt";
+import { printUrl } from "@/lib/halftone";
+import { colors } from "@/lib/theme";
 
 const pad = (n) => String(n).padStart(2, "0");
 const isStatic = () => document.documentElement.dataset.world === "static";
@@ -113,8 +115,10 @@ function wireRail(row) {
   let visible = false;
   let lastT = 0;
 
+  let moving = false;
   const frame = (time) => {
-    if (!visible) return;
+    if (!visible || detailUi.open) return; // off screen, or a detail covers the page
+
     const dt = Math.min(0.1, lastT ? time - lastT : 1 / 60);
     lastT = time;
     const left = rail.scrollLeft;
@@ -123,6 +127,13 @@ function wireRail(row) {
     vel += (v - vel) * (1 - Math.exp(-12 * dt));
     const targetTilt = calm ? 0 : clamp(-vel * F.tiltPerPxPerSecond, -F.tiltMax, F.tiltMax);
     tilt += (targetTilt - tilt) * (1 - Math.exp(-F.tiltSettle * dt));
+    // Compositor layers (will-change, in CSS) only while the rail is actually moving.
+    const nowMoving = Math.abs(vel) > 20 || Math.abs(tilt) > 0.02 || !!drag;
+    if (nowMoving !== moving) {
+      moving = nowMoving;
+      if (moving) rail.dataset.moving = "";
+      else delete rail.dataset.moving;
+    }
     const mid = left + half;
     let best = 0;
     let bestD = Infinity;
@@ -274,6 +285,11 @@ export default function Programs() {
       ro.disconnect();
       st.kill();
     };
+  }, []);
+
+  /* Warm the detail's black-ink prints in idle time, so the first open never makes one. */
+  useEffect(() => {
+    programs.forEach((p) => printUrl(p, { ink: colors.black, accent: null, size: 512 }));
   }, []);
 
   /* Rails: centre scale, parallax, dots, arrows, drag, keys. */
